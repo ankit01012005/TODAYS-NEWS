@@ -30,6 +30,7 @@
     "cors": "2.8.6",
     "express": "5.2.1",
     "express-rate-limit": "8.7.0",
+    "multer": "2.3.0",
     "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
@@ -37,6 +38,7 @@
     "@types/cors": "2.8.19",
     "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
+    "@types/multer": "2.2.0",
     "@types/node": "22.10.2",
     "jest": "30.5.1",
     "prisma": "6.19.3",
