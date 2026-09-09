@@ -33,7 +33,7 @@ export function createApp(): Express {
   // --- Everything below requires a session ---
   app.use(sessionAuth);
   app.use(authProtectedRouter);
-  app.use(usersRouter);
+  app.use("/users", usersRouter);
 
   // Unmatched route -> our JSON 404, not Express's default HTML page.
   app.use((_req: Request, _res: Response, next: NextFunction) => {
