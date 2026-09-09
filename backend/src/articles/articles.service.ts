@@ -6,12 +6,7 @@ import { assertOwnerOrAdmin } from "./authorization";
 import { assertValidBodyShape, deriveBodyPlain } from "./body.util";
 import { writeAudit } from "../common/audit";
 import { UpdateArticleContentDto } from "./dto/update-article-content.dto";
-import {
-  ArticleListItemView,
-  RevisionHistoryEntryView,
-  toArticleListItemView,
-  toRevisionHistoryEntryView,
-} from "./article.view";
+import { RevisionHistoryEntryView, toRevisionHistoryEntryView } from "./article.view";
 
 /// States in which a revision's content may still be edited (docs/26 §1.3).
 const EDITABLE_STATES: ArticleRevision["state"][] = ["DRAFT", "CHANGES_REQUESTED"];
@@ -87,11 +82,6 @@ export async function getRevisionHistory(
   return revisions.map(toRevisionHistoryEntryView);
 }
 
-/// docs/09 §0: state is "the single most important piece of information in
-/// this whole area" — so the list carries each article's latest and
-/// published revision state, not just the bare Article row. Batched (two
-/// extra queries total, not one per article) — same pattern as
-/// public.service.ts's listPublished.
 export async function listArticles(
   user: AuthenticatedUser,
   options: { limit: number; offset: number },
