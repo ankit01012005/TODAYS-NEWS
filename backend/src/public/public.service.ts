@@ -31,7 +31,7 @@ export async function listPublished(
     where,
     orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
     take: PAGE_SIZE + 1,
-    include: { category: true },
+    include: { category: true, owner: true },
   });
 
   const hasMore = articles.length > PAGE_SIZE;
@@ -39,16 +39,24 @@ export async function listPublished(
 
   const revisions = await prisma.articleRevision.findMany({
     where: { id: { in: page.map((a) => a.currentPublishedRevisionId!).filter(Boolean) } },
+    include: { featuredImage: true },
   });
   const revisionById = new Map(revisions.map((r) => [r.id, r]));
 
+  // card-lead / card-standard (docs/19 §2.5) both require an image slot and
+  // a byline — omitted here originally, which would have shipped a
+  // homepage that couldn't actually render either component as designed.
   const summaries: PublicArticleSummary[] = page.map((article) => {
     const revision = revisionById.get(article.currentPublishedRevisionId!);
+    const imageUrl = featuredImageUrl(revision?.featuredImage?.storageKey ?? null);
     return {
       slug: article.slug,
       category: { name: article.category.name, slug: article.category.slug },
       headline: revision?.headline ?? "",
       summary: revision?.summary ?? "",
+      byline: article.bylineOverride ?? article.owner.displayName,
+      featuredImage:
+        imageUrl && revision ? { url: imageUrl, alt: revision.featuredImageAlt ?? "" } : null,
       publishedAt: (article.publishedAt ?? article.createdAt).toISOString(),
     };
   });
