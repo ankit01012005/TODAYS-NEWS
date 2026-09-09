@@ -507,7 +507,21 @@ explains why the tie is broken the way it is.
 
 ## 7. Recommended backend framework
 
-### 7.1 Recommendation: NestJS
+### 7.1 Recommendation: NestJS — **SUPERSEDED 2026-09-09 (Phase 4C-1)**
+
+> **RESOLUTION.** The client chose **Express**, on plain Node.js, over this
+> recommendation — developer familiarity with Express specifically, not just
+> Node.js in general (§7.2's premise). `AD-03` in §28 is updated accordingly.
+> The guard/DI structure NestJS would have supplied by construction is now
+> hand-written: capability checks as ordinary Express middleware
+> (`requireCapability`, applied per-router — see `backend/src/common/
+> middleware/`), applied globally except for an explicit public-route
+> allowlist registered before the auth middleware, so the same "deny by
+> default" posture (`SEC-01`) holds without a decorator/metadata system. The
+> cost named in §7.2 — a missing check being the easiest mistake to make —
+> is therefore now a discipline the code review process must catch, not
+> something the framework prevents structurally. The analysis below is
+> retained as the record of how the original recommendation was reached.
 
 **[ARCHITECTURAL RECOMMENDATION]** — with the switch condition in §7.3.
 
@@ -1614,7 +1628,7 @@ embargoed journalism into a third-party logging service.
 | Layer | Choice | Status |
 |---|---|---|
 | Front end | Next.js (public + CMS, one app) | **V1** |
-| Backend | Node.js API — **NestJS** on the Fastify adapter | **V1** |
+| Backend | Node.js API — **Express** (superseded from NestJS/Fastify, §7.1) | **V1** |
 | API style | REST, transitions as explicit actions | **V1** |
 | Database | PostgreSQL | **V1** |
 | Data access | Prisma | **V1** |
@@ -1725,7 +1739,7 @@ and privacy) · `OQ-42` / `P2-28` (timezone)
 |---|---|---|---|---|
 | **AD-01** | Next.js front end, server-rendered | Recommended | `SEO-01`, `PRF-01/02`, `PUB-13` — **[REQUIREMENT-DERIVED]** | V1 |
 | **AD-02** | Separate Node.js API, not Next.js full-stack | Recommended | `BR-11`, `SEC-01`, `PRF-07` — **[REQUIREMENT-DERIVED]** | V1 |
-| **AD-03** | **NestJS** as the framework | Recommended, **with the §7.3 switch condition** | **[ARCHITECTURAL RECOMMENDATION]** | V1 |
+| **AD-03** | ~~NestJS~~ **Express**, on plain Node.js | **SUPERSEDED 2026-09-09** — client chose Express for developer familiarity; see §7.1 | **[CONFIRMED]** | V1 |
 | **AD-04** | REST, not GraphQL | Recommended | One known client; per-endpoint authorisation — **[ARCHITECTURAL RECOMMENDATION]** | V1 |
 | **AD-05** | **Transitions are named actions, never a state field** | Recommended | `BR-10`, `BR-02`, `BR-05` — **[REQUIREMENT-DERIVED]** | V1 |
 | **AD-06** | PostgreSQL | Recommended | Relational data, transactions, constraints, FTS — **[REQUIREMENT-DERIVED]** | V1 |

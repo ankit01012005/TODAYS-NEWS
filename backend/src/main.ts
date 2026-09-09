@@ -1,31 +1,23 @@
 import "reflect-metadata";
-import { NestFactory } from "@nestjs/core";
-import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
-import { ConfigService } from "@nestjs/config";
-import { ValidationPipe } from "@nestjs/common";
-import fastifyCookie from "@fastify/cookie";
-import { AppModule } from "./app.module";
-import { AppEnv } from "./config/env.validation";
+import "./common/authenticated-user"; // Express.Request augmentation
+import { createApp } from "./app";
+import { config } from "./config";
+import { disconnectDb } from "./db";
 
-async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
+const app = createApp();
 
-  await app.register(fastifyCookie);
+const server = app.listen(config.PORT, "0.0.0.0", () => {
+  // eslint-disable-next-line no-console
+  console.log(`Today_news API listening on port ${config.PORT}`);
+});
 
-  // SEC-06: reject anything a DTO doesn't declare, and coerce/validate the
-  // rest — front-end validation is a courtesy, this is the rule.
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
-
-  // No frontend origin is decided yet (Phase 4C-1 scope) — permissive for
-  // now, tightened once Next.js exists and talks to this API server-to-
-  // server (docs/23 §11.4).
-  app.enableCors({ origin: true, credentials: true });
-
-  const config = app.get(ConfigService<AppEnv, true>);
-  const port = config.get("PORT", { infer: true });
-  await app.listen(port, "0.0.0.0");
+async function shutdown(signal: string): Promise<void> {
+  // eslint-disable-next-line no-console
+  console.log(`${signal} received, shutting down`);
+  server.close();
+  await disconnectDb();
+  process.exit(0);
 }
 
-bootstrap();
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

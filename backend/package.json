@@ -2,9 +2,12 @@
   "name": "today-news-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Today_news API — NestJS backend on PostgreSQL/Prisma",
+  "description": "Today_news API — Express backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",
@@ -18,26 +21,21 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
-  "overrides": {
-    "fastify": "5.12.3"
-  },
   "dependencies": {
-    "@fastify/cookie": "11.1.2",
-    "@nestjs/common": "11.2.3",
-    "@nestjs/config": "4.0.4",
-    "@nestjs/core": "11.2.3",
-    "@nestjs/platform-fastify": "11.2.3",
-    "@nestjs/throttler": "6.5.0",
     "@prisma/client": "6.19.3",
     "argon2": "0.45.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
-    "fastify": "5.12.3",
-    "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.1"
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "express-rate-limit": "8.7.0",
+    "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
-    "@nestjs/testing": "11.2.3",
+    "@types/cookie-parser": "1.4.10",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
     "@types/jest": "30.0.0",
     "@types/node": "22.10.2",
     "jest": "30.5.1",

@@ -1,46 +1,54 @@
-import { ConflictException, NotFoundException } from "@nestjs/common";
-import { UsersService } from "./users.service";
+jest.mock("../db", () => ({
+  prisma: {
+    user: { update: jest.fn(), create: jest.fn() },
+    $transaction: jest.fn(),
+  },
+}));
+jest.mock("../auth/auth.service", () => ({
+  issueInvitationToken: jest.fn(),
+}));
 
-describe("UsersService — BR-14 error mapping", () => {
-  function makePrisma() {
-    return {
-      user: { update: jest.fn(), create: jest.fn() },
-      $transaction: jest.fn(async (fn: (tx: unknown) => unknown) =>
-        fn({
-          user: { update: jest.fn() },
-          session: { updateMany: jest.fn() },
-        }),
-      ),
-    };
-  }
+import { prisma } from "../db";
+import * as usersService from "./users.service";
+import { ConflictError, NotFoundError } from "../common/http-errors";
+
+const mockedPrisma = prisma as unknown as {
+  user: { update: jest.Mock; create: jest.Mock };
+  $transaction: jest.Mock;
+};
+
+describe("users.service — BR-14 error mapping", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it("maps the BR-14 trigger's raw Postgres exception to a clean 409, never leaking it", async () => {
-    const prisma = makePrisma();
-    prisma.user.update.mockRejectedValue(
-      new Error(
-        'at least one active admin must exist at all times (BR-14)',
-      ),
+    mockedPrisma.user.update.mockRejectedValue(
+      new Error("at least one active admin must exist at all times (BR-14)"),
     );
-    const service = new UsersService(prisma as never, {} as never);
 
-    await expect(service.changeRole("u1", "EDITOR")).rejects.toThrow(ConflictException);
+    await expect(usersService.changeRole("u1", "EDITOR")).rejects.toThrow(ConflictError);
   });
 
   it("leaves an unrelated database error untouched — not every failure is BR-14", async () => {
-    const prisma = makePrisma();
     const unrelated = new Error("connection reset by peer");
-    prisma.user.update.mockRejectedValue(unrelated);
-    const service = new UsersService(prisma as never, {} as never);
+    mockedPrisma.user.update.mockRejectedValue(unrelated);
 
-    await expect(service.changeRole("u1", "EDITOR")).rejects.toThrow(unrelated);
+    await expect(usersService.changeRole("u1", "EDITOR")).rejects.toThrow(unrelated);
   });
 
-  it("maps Prisma's not-found error (P2025) to NotFoundException", async () => {
-    const prisma = makePrisma();
+  it("maps Prisma's not-found error (P2025) to NotFoundError", async () => {
     const notFound = Object.assign(new Error("Record not found"), { code: "P2025" });
-    prisma.user.update.mockRejectedValue(notFound);
-    const service = new UsersService(prisma as never, {} as never);
+    mockedPrisma.user.update.mockRejectedValue(notFound);
 
-    await expect(service.changeRole("missing", "EDITOR")).rejects.toThrow(NotFoundException);
+    await expect(usersService.changeRole("missing", "EDITOR")).rejects.toThrow(NotFoundError);
+  });
+
+  it("deactivate() runs updates inside a transaction and maps BR-14 the same way", async () => {
+    mockedPrisma.$transaction.mockRejectedValue(
+      new Error("at least one active admin must exist at all times (BR-14)"),
+    );
+
+    await expect(usersService.deactivate("u1")).rejects.toThrow(ConflictError);
   });
 });
