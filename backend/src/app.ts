@@ -8,6 +8,14 @@ import { NotFoundError } from "./common/http-errors";
 import { healthRouter } from "./health/health.router";
 import { authPublicRouter, authProtectedRouter } from "./auth/auth.router";
 import { usersRouter } from "./users/users.router";
+import { articlesRouter } from "./articles/articles.router";
+import { reviewsRouter } from "./articles/reviews.router";
+import { categoriesRouter } from "./categories/categories.router";
+import { sourcesRouter, articleSourcesRouter } from "./sources/sources.router";
+import { mediaRouter } from "./media/media.router";
+import { auditRouter } from "./audit/audit.router";
+import { publicRouter } from "./public/public.router";
+import { UPLOADS_DIR } from "./media/storage";
 
 /// Builds the Express app without starting a listener — main.ts calls
 /// listen(), tests can exercise the app directly. Route registration order
@@ -29,11 +37,22 @@ export function createApp(): Express {
   // --- Public routes ---
   app.use(healthRouter);
   app.use(authPublicRouter);
+  app.use(publicRouter);
+  // Uploaded media (local-disk placeholder, docs/23 §14.1) — served
+  // publicly, same as any CDN-fronted object-storage bucket would be.
+  app.use("/uploads", express.static(UPLOADS_DIR));
 
   // --- Everything below requires a session ---
   app.use(sessionAuth);
   app.use(authProtectedRouter);
   app.use("/users", usersRouter);
+  app.use("/categories", categoriesRouter);
+  app.use("/sources", sourcesRouter);
+  app.use(articleSourcesRouter);
+  app.use("/media", mediaRouter);
+  app.use(articlesRouter);
+  app.use(reviewsRouter);
+  app.use(auditRouter);
 
   // Unmatched route -> our JSON 404, not Express's default HTML page.
   app.use((_req: Request, _res: Response, next: NextFunction) => {

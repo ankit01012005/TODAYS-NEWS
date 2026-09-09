@@ -10,3 +10,6 @@ dist/
 verify-*.ts
 verify-*.mjs
 .verify-pgdata/
+
+# Local-disk media storage placeholder (media/storage.ts) — dev only.
+uploads/
