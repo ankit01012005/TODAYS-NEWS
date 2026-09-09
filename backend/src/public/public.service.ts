@@ -112,3 +112,15 @@ export async function getCategory(slug: string): Promise<{ name: string; slug: s
   if (!category) throw new NotFoundError("No such category");
   return { name: category.name, slug: category.slug };
 }
+
+/// docs/19 §2.4 — the masthead's section nav needs the full category list
+/// on every public page, not just section pages. The only categories
+/// endpoint before this (GET /categories) sits behind sessionAuth for the
+/// CMS; this is its public, read-only counterpart.
+export async function listCategories(): Promise<{ name: string; slug: string }[]> {
+  const categories = await prisma.category.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+  });
+  return categories.map((c) => ({ name: c.name, slug: c.slug }));
+}

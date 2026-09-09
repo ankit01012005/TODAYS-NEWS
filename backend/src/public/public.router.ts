@@ -12,6 +12,10 @@ publicRouter.get("/public/articles", async (req: Request, res: Response) => {
   res.status(200).json(await publicService.listPublished(cursor));
 });
 
+publicRouter.get("/public/categories", async (_req: Request, res: Response) => {
+  res.status(200).json(await publicService.listCategories());
+});
+
 publicRouter.get("/public/categories/:categorySlug", async (req: Request<{ categorySlug: string }>, res: Response) => {
   const category = await publicService.getCategory(req.params.categorySlug);
   const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;

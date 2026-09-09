@@ -1,9 +1,7 @@
 import Link from "next/link";
 
 /// docs/19 §2.4 — About · Contact · Editorial policy · Privacy · RSS.
-/// Nothing else. The four static pages arrive in 5B; the links are wired
-/// now so the footer's shape is right from the first real page, even
-/// though following them 404s until 5B lands.
+/// Nothing else.
 export function PublicFooter() {
   return (
     <footer className="border-t border-rule">
@@ -21,7 +19,7 @@ export function PublicFooter() {
           <Link href="/privacy" className="text-body-sm text-ink-muted hover:text-ink">
             Privacy
           </Link>
-          <Link href="/feed" className="text-body-sm text-ink-muted hover:text-ink">
+          <Link href="/feed.xml" className="text-body-sm text-ink-muted hover:text-ink">
             RSS
           </Link>
         </nav>
