@@ -6,7 +6,12 @@ import { assertOwnerOrAdmin } from "./authorization";
 import { assertValidBodyShape, deriveBodyPlain } from "./body.util";
 import { writeAudit } from "../common/audit";
 import { UpdateArticleContentDto } from "./dto/update-article-content.dto";
-import { RevisionHistoryEntryView, toRevisionHistoryEntryView } from "./article.view";
+import {
+  ArticleListItemView,
+  RevisionHistoryEntryView,
+  toArticleListItemView,
+  toRevisionHistoryEntryView,
+} from "./article.view";
 
 /// States in which a revision's content may still be edited (docs/26 §1.3).
 const EDITABLE_STATES: ArticleRevision["state"][] = ["DRAFT", "CHANGES_REQUESTED"];
