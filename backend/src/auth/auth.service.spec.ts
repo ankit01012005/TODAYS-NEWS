@@ -2,7 +2,7 @@ import * as argon2 from "argon2";
 
 jest.mock("../db", () => ({
   prisma: {
-    user: { findUnique: jest.fn(), update: jest.fn() },
+    user: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn() },
     session: { create: jest.fn(), updateMany: jest.fn() },
   },
 }));
@@ -13,10 +13,10 @@ jest.mock("../config", () => ({
 // Imported AFTER the mocks above so auth.service picks up the mocked modules.
 import { prisma } from "../db";
 import * as auth from "./auth.service";
-import { UnauthorizedError } from "../common/http-errors";
+import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 
 const mockedPrisma = prisma as unknown as {
-  user: { findUnique: jest.Mock; update: jest.Mock };
+  user: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock; update: jest.Mock };
   session: { create: jest.Mock; updateMany: jest.Mock };
 };
 
@@ -112,5 +112,58 @@ describe("auth.service", () => {
       UnauthorizedError,
     );
     expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  describe("updateProfile — docs/09 E-10", () => {
+    it("updates displayName alone, with no password fields at all", async () => {
+      mockedPrisma.user.update.mockResolvedValue({
+        id: "u1",
+        email: "editor@test.local",
+        displayName: "New Name",
+        role: "EDITOR",
+      });
+
+      const result = await auth.updateProfile("u1", { displayName: "New Name" });
+
+      expect(result.displayName).toBe("New Name");
+      expect(mockedPrisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
+      expect(mockedPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "u1" },
+        data: { displayName: "New Name" },
+      });
+    });
+
+    it("refuses a new password with no current password supplied", async () => {
+      await expect(auth.updateProfile("u1", { newPassword: "a new password 123" })).rejects.toThrow(
+        BadRequestError,
+      );
+      expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses a new password when the current password is wrong", async () => {
+      mockedPrisma.user.findUniqueOrThrow.mockResolvedValue({ id: "u1", passwordHash: knownPasswordHash });
+
+      await expect(
+        auth.updateProfile("u1", { currentPassword: "wrong password", newPassword: "a new password 123" }),
+      ).rejects.toThrow(UnauthorizedError);
+      expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("sets a new password once the current one is verified", async () => {
+      mockedPrisma.user.findUniqueOrThrow.mockResolvedValue({ id: "u1", passwordHash: knownPasswordHash });
+      mockedPrisma.user.update.mockResolvedValue({
+        id: "u1",
+        email: "editor@test.local",
+        displayName: "Editor One",
+        role: "EDITOR",
+      });
+
+      await auth.updateProfile("u1", { currentPassword: KNOWN_PASSWORD, newPassword: "a new password 123" });
+
+      expect(mockedPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: "u1" },
+        data: { passwordHash: expect.any(String) },
+      });
+    });
   });
 });

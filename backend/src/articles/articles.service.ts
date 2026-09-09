@@ -85,8 +85,8 @@ export async function getRevisionHistory(
 export async function listArticles(
   user: AuthenticatedUser,
   options: { limit: number; offset: number },
-): Promise<Article[]> {
-  return prisma.article.findMany({
+): Promise<ArticleListItemView[]> {
+  const articles = await prisma.article.findMany({
     where: {
       deletedAt: null,
       // OQ-05's narrow, consistently-assumed answer: an editor sees only
@@ -96,7 +96,34 @@ export async function listArticles(
     orderBy: { updatedAt: "desc" },
     take: options.limit,
     skip: options.offset,
+    include: { category: true },
   });
+
+  // One row per article, the newest by creation time — `distinct` +
+  // `orderBy` (Postgres DISTINCT ON under the hood) rather than filtering
+  // on open_marker, which is null for REJECTED/ARCHIVED revisions and so
+  // could never represent those states here (see ArticleListItemView's
+  // doc-comment for why that matters).
+  const latestRevisions = await prisma.articleRevision.findMany({
+    where: { articleId: { in: articles.map((a) => a.id) } },
+    orderBy: { createdAt: "desc" },
+    distinct: ["articleId"],
+  });
+  const publishedRevisions = await prisma.articleRevision.findMany({
+    where: {
+      id: { in: articles.map((a) => a.currentPublishedRevisionId).filter((id): id is string => id !== null) },
+    },
+  });
+  const latestByArticleId = new Map(latestRevisions.map((r) => [r.articleId, r]));
+  const publishedById = new Map(publishedRevisions.map((r) => [r.id, r]));
+
+  return articles.map((article) =>
+    toArticleListItemView(
+      article,
+      latestByArticleId.get(article.id) ?? null,
+      article.currentPublishedRevisionId ? (publishedById.get(article.currentPublishedRevisionId) ?? null) : null,
+    ),
+  );
 }
 
 /// T2/T8 — save. Editable only while the open revision is DRAFT or
