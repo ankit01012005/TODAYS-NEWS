@@ -14,6 +14,7 @@ const tx = {
     create: jest.fn(),
   },
   reviewDecision: { create: jest.fn() },
+  articleSource: { findMany: jest.fn(), createMany: jest.fn() },
   auditLog: { create: jest.fn() },
 };
 
@@ -27,6 +28,7 @@ import * as transitions from "./transition.service";
 describe("transition.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    tx.articleSource.findMany.mockResolvedValue([]);
   });
 
   it("submitForReview refuses an incomplete revision — BR-09", async () => {
@@ -181,5 +183,121 @@ describe("transition.service", () => {
     expect(tx.reviewDecision.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ decision: "APPROVED" }) }),
     );
+  });
+
+  describe("requestChanges — docs/26 §1.4 archive+copy, not a same-row flip", () => {
+    it("archives the reviewed revision rather than flipping it in place", async () => {
+      tx.article.findUnique.mockResolvedValue({ id: "a1", ownerId: editor.id, deletedAt: null });
+      tx.articleRevision.findFirst.mockResolvedValue({
+        id: "reviewed-rev",
+        articleId: "a1",
+        state: "IN_REVIEW",
+        createdByUserId: editor.id,
+      });
+      tx.articleRevision.updateMany.mockResolvedValue({ count: 1 });
+      tx.articleRevision.create.mockResolvedValue({
+        id: "copy-rev",
+        articleId: "a1",
+        state: "CHANGES_REQUESTED",
+        createdByUserId: editor.id,
+      });
+
+      const result = await transitions.requestChanges(admin, "a1", 0, "Please add a source.");
+
+      expect(tx.articleRevision.updateMany).toHaveBeenCalledWith({
+        where: { id: "reviewed-rev", version: 0 },
+        data: expect.objectContaining({ state: "ARCHIVED" }),
+      });
+      // The returned revision is the NEW copy, not the archived one.
+      expect(result.id).toBe("copy-rev");
+      expect(result.state).toBe("CHANGES_REQUESTED");
+    });
+
+    it("writes the ReviewDecision against the reviewed (now-archived) revision, not the copy", async () => {
+      tx.article.findUnique.mockResolvedValue({ id: "a1", ownerId: editor.id, deletedAt: null });
+      tx.articleRevision.findFirst.mockResolvedValue({
+        id: "reviewed-rev",
+        articleId: "a1",
+        state: "IN_REVIEW",
+        createdByUserId: editor.id,
+      });
+      tx.articleRevision.updateMany.mockResolvedValue({ count: 1 });
+      tx.articleRevision.create.mockResolvedValue({ id: "copy-rev", state: "CHANGES_REQUESTED" });
+
+      await transitions.requestChanges(admin, "a1", 0, "Please add a source.");
+
+      expect(tx.reviewDecision.create).toHaveBeenCalledWith({
+        data: {
+          articleRevisionId: "reviewed-rev",
+          decision: "CHANGES_REQUESTED",
+          comment: "Please add a source.",
+          decidedByUserId: admin.id,
+        },
+      });
+    });
+
+    it("preserves the original author on the copy — the admin sending it back is not the author", async () => {
+      tx.article.findUnique.mockResolvedValue({ id: "a1", ownerId: editor.id, deletedAt: null });
+      tx.articleRevision.findFirst.mockResolvedValue({
+        id: "reviewed-rev",
+        articleId: "a1",
+        state: "IN_REVIEW",
+        createdByUserId: editor.id,
+      });
+      tx.articleRevision.updateMany.mockResolvedValue({ count: 1 });
+      tx.articleRevision.create.mockResolvedValue({ id: "copy-rev", state: "CHANGES_REQUESTED" });
+
+      await transitions.requestChanges(admin, "a1", 0, "Please add a source.");
+
+      expect(tx.articleRevision.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ createdByUserId: editor.id }) }),
+      );
+    });
+  });
+
+  describe("copyIntoNewRevision (via startCorrection) — carries sources forward", () => {
+    it("copies the source revision's ArticleSource rows onto the new one", async () => {
+      tx.article.findUnique.mockResolvedValue({
+        id: "a1",
+        ownerId: editor.id,
+        currentPublishedRevisionId: "published-rev",
+        deletedAt: null,
+      });
+      tx.articleRevision.findUniqueOrThrow.mockResolvedValue({
+        id: "published-rev",
+        articleId: "a1",
+        state: "PUBLISHED",
+      });
+      tx.articleRevision.create.mockResolvedValue({ id: "new-draft", state: "DRAFT" });
+      tx.articleSource.findMany.mockResolvedValue([
+        { sourceId: "src-1", position: 0, isPublic: true, note: "Confirmed by phone" },
+        { sourceId: "src-2", position: 1, isPublic: false, note: null },
+      ]);
+
+      await transitions.startCorrection(editor, "a1");
+
+      expect(tx.articleSource.createMany).toHaveBeenCalledWith({
+        data: [
+          { articleRevisionId: "new-draft", sourceId: "src-1", position: 0, isPublic: true, note: "Confirmed by phone" },
+          { articleRevisionId: "new-draft", sourceId: "src-2", position: 1, isPublic: false, note: null },
+        ],
+      });
+    });
+
+    it("skips the createMany call when the source revision has no sources", async () => {
+      tx.article.findUnique.mockResolvedValue({
+        id: "a1",
+        ownerId: editor.id,
+        currentPublishedRevisionId: "published-rev",
+        deletedAt: null,
+      });
+      tx.articleRevision.findUniqueOrThrow.mockResolvedValue({ id: "published-rev", articleId: "a1" });
+      tx.articleRevision.create.mockResolvedValue({ id: "new-draft", state: "DRAFT" });
+      tx.articleSource.findMany.mockResolvedValue([]);
+
+      await transitions.startCorrection(editor, "a1");
+
+      expect(tx.articleSource.createMany).not.toHaveBeenCalled();
+    });
   });
 });

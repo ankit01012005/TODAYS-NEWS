@@ -6,6 +6,7 @@ import { assertOwnerOrAdmin } from "./authorization";
 import { assertValidBodyShape, deriveBodyPlain } from "./body.util";
 import { writeAudit } from "../common/audit";
 import { UpdateArticleContentDto } from "./dto/update-article-content.dto";
+import { RevisionHistoryEntryView, toRevisionHistoryEntryView } from "./article.view";
 
 /// States in which a revision's content may still be edited (docs/26 §1.3).
 const EDITABLE_STATES: ArticleRevision["state"][] = ["DRAFT", "CHANGES_REQUESTED"];
@@ -57,6 +58,28 @@ export async function getArticleWithRevisions(
   ]);
 
   return { article, openRevision, publishedRevision };
+}
+
+/// docs/26 §1.5's "revision history — what complete means": every revision
+/// ever frozen for this article, oldest first, each with the decision(s)
+/// made on it. Owner or admin, same as the per-article audit feed —
+/// PG-ADM-05 and the feedback panel's "earlier rounds" both read this.
+export async function getRevisionHistory(
+  user: AuthenticatedUser,
+  articleId: string,
+): Promise<RevisionHistoryEntryView[]> {
+  const article = await prisma.article.findUnique({ where: { id: articleId } });
+  if (!article || article.deletedAt) {
+    throw new NotFoundError("No such article");
+  }
+  assertOwnerOrAdmin(user, article);
+
+  const revisions = await prisma.articleRevision.findMany({
+    where: { articleId },
+    orderBy: { createdAt: "asc" },
+    include: { reviewDecisions: { orderBy: { decidedAt: "asc" } } },
+  });
+  return revisions.map(toRevisionHistoryEntryView);
 }
 
 export async function listArticles(

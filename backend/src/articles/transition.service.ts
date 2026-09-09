@@ -68,20 +68,27 @@ function assertCompleteForSubmission(revision: ArticleRevision): void {
   }
 }
 
-/// T13/T14/T16 all create a new DRAFT revision as a copy of an existing
+/// T4/T11/T13/T14/T16 all create a new revision as a copy of an existing
 /// one's content (docs/26 §1.4), rather than mutating a frozen revision
-/// (I-6). The I-1 unique index is the race guard if two callers try this
-/// at once — caught and remapped below.
-async function copyIntoNewDraft(
+/// (I-6) — DRAFT for T13/T14/T16 (correct / reopen / restore),
+/// CHANGES_REQUESTED for T4/T11 (request changes). The I-1 unique index is
+/// the race guard if two callers try this at once — caught and remapped
+/// below. Also carries the source revision's ArticleSource rows forward:
+/// sources are per-revision by design (docs/26 §4.2 — a correction may
+/// change what's cited), but a fresh copy with zero citations would be data
+/// loss whenever nothing about the sourcing actually changed.
+async function copyIntoNewRevision(
   tx: TxClient,
   source: ArticleRevision,
   createdByUserId: string,
+  targetState: "DRAFT" | "CHANGES_REQUESTED",
 ): Promise<ArticleRevision> {
+  let created: ArticleRevision;
   try {
-    return await tx.articleRevision.create({
+    created = await tx.articleRevision.create({
       data: {
         articleId: source.articleId,
-        state: "DRAFT",
+        state: targetState,
         createdByUserId,
         headline: source.headline,
         summary: source.summary,
@@ -101,6 +108,21 @@ async function copyIntoNewDraft(
     }
     throw error;
   }
+
+  const sources = await tx.articleSource.findMany({ where: { articleRevisionId: source.id } });
+  if (sources.length > 0) {
+    await tx.articleSource.createMany({
+      data: sources.map((s) => ({
+        articleRevisionId: created.id,
+        sourceId: s.sourceId,
+        position: s.position,
+        isPublic: s.isPublic,
+        note: s.note,
+      })),
+    });
+  }
+
+  return created;
 }
 
 function isUniqueConstraintViolation(error: unknown, constraintHint: string): boolean {
@@ -162,6 +184,18 @@ export async function withdraw(user: AuthenticatedUser, articleId: string, versi
 
 // ---------------------------------------------------------------------------
 // T4 / T11 — request changes (admin only, from IN_REVIEW or APPROVED)
+//
+// docs/26 §1.4: the reviewed revision is ARCHIVED, and a NEW revision is
+// created as a copy, CHANGES_REQUESTED, editable — not a same-row state
+// flip. Reason: ADM-03 requires the admin to see what changed since last
+// submission, and P2-16 asks whether an editor can see what an admin
+// changed; both need the previously submitted text preserved exactly as it
+// was reviewed. If the editor's later edits landed on the same row, the
+// version the admin actually read would be gone. The ReviewDecision is
+// written against the now-frozen ARCHIVED revision — "the version the admin
+// actually reviewed" — and createdByUserId on the copy is preserved from
+// the source (this is still the editor's writing, not new authorship by
+// the admin who sent it back).
 // ---------------------------------------------------------------------------
 export async function requestChanges(
   user: AuthenticatedUser,
@@ -174,7 +208,7 @@ export async function requestChanges(
     const revision = await loadOpenRevisionOrThrow(tx, articleId);
     assertRevisionState(revision, ["IN_REVIEW", "APPROVED"]);
 
-    await updateRevisionGuarded(tx, revision.id, version, { state: "CHANGES_REQUESTED" });
+    await updateRevisionGuarded(tx, revision.id, version, { state: "ARCHIVED", archivedAt: new Date() });
     await tx.reviewDecision.create({
       data: {
         articleRevisionId: revision.id,
@@ -183,14 +217,18 @@ export async function requestChanges(
         decidedByUserId: user.id,
       },
     });
+
+    const copy = await copyIntoNewRevision(tx, revision, revision.createdByUserId, "CHANGES_REQUESTED");
+
     await writeAudit(tx, {
       actorUserId: user.id,
       entityType: "ArticleRevision",
-      entityId: revision.id,
+      entityId: copy.id,
       action: "REQUEST_CHANGES",
       articleId,
+      metadata: { reviewedRevisionId: revision.id },
     });
-    return tx.articleRevision.findUniqueOrThrow({ where: { id: revision.id } });
+    return copy;
   });
 }
 
@@ -345,7 +383,7 @@ export async function startCorrection(user: AuthenticatedUser, articleId: string
       where: { id: article.currentPublishedRevisionId },
     });
 
-    const draft = await copyIntoNewDraft(tx, published, user.id);
+    const draft = await copyIntoNewRevision(tx, published, user.id, "DRAFT");
     await writeAudit(tx, {
       actorUserId: user.id,
       entityType: "ArticleRevision",
@@ -371,7 +409,7 @@ export async function reopen(user: AuthenticatedUser, articleId: string): Promis
       throw new ConflictError("This article has no rejected revision to reopen");
     }
 
-    const draft = await copyIntoNewDraft(tx, rejected, user.id);
+    const draft = await copyIntoNewRevision(tx, rejected, user.id, "DRAFT");
     await writeAudit(tx, {
       actorUserId: user.id,
       entityType: "ArticleRevision",
@@ -431,7 +469,7 @@ export async function restore(user: AuthenticatedUser, articleId: string): Promi
       throw new ConflictError("This article has no archived revision to restore");
     }
 
-    const draft = await copyIntoNewDraft(tx, archived, user.id);
+    const draft = await copyIntoNewRevision(tx, archived, user.id, "DRAFT");
     await writeAudit(tx, {
       actorUserId: user.id,
       entityType: "ArticleRevision",
