@@ -1,10 +1,13 @@
 import { Router, Request, Response } from "express";
+import { ParamsDictionary } from "express-serve-static-core";
 import { rateLimit } from "express-rate-limit";
 import * as auth from "./auth.service";
 import { SignInDto } from "./dto/sign-in.dto";
 import { SetPasswordDto } from "./dto/set-password.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
+import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { validateBody } from "../common/middleware/validate-body.middleware";
+import { CurrentUser } from "../common/current-user";
 import { config } from "../config";
 
 const GENERIC_RESET_MESSAGE = "If an account exists for that email, a reset link has been sent.";
@@ -84,3 +87,12 @@ authProtectedRouter.post("/auth/sign-out", async (req: Request, res: Response) =
 authProtectedRouter.get("/auth/me", (req: Request, res: Response) => {
   res.status(200).json({ user: req.user });
 });
+
+authProtectedRouter.patch(
+  "/auth/me",
+  validateBody(UpdateProfileDto),
+  async (req: Request<ParamsDictionary, unknown, UpdateProfileDto>, res: Response) => {
+    const user = await auth.updateProfile(CurrentUser(req).id, req.body);
+    res.status(200).json({ user });
+  },
+);

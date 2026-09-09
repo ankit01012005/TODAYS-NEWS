@@ -4,7 +4,7 @@ import { prisma } from "../db";
 import { config } from "../config";
 import { AuthenticatedUser } from "../common/authenticated-user";
 import { generateOpaqueToken, hashToken } from "../common/token.util";
-import { UnauthorizedError } from "../common/http-errors";
+import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 
 const INVITATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -107,4 +107,41 @@ export async function setPasswordWithToken(rawToken: string, newPassword: string
       passwordResetExpiresAt: null,
     },
   });
+}
+
+/// docs/09 E-10 / docs/12 PG-EDT-10 — self-service profile update. Role is
+/// deliberately not a field this function ever touches — there is no
+/// self-promotion route, by construction (USR-02), not by omission from a
+/// generic "update user" call that happens not to expose it.
+export async function updateProfile(
+  userId: string,
+  input: { displayName?: string; currentPassword?: string; newPassword?: string },
+): Promise<AuthenticatedUser> {
+  const data: { displayName?: string; passwordHash?: string } = {};
+
+  if (input.displayName !== undefined) {
+    data.displayName = input.displayName;
+  }
+
+  if (input.newPassword !== undefined) {
+    if (!input.currentPassword) {
+      throw new BadRequestError("currentPassword is required to set a new password");
+    }
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const currentPasswordValid = await argon2
+      .verify(user.passwordHash, input.currentPassword)
+      .catch(() => false);
+    if (!currentPasswordValid) {
+      throw new UnauthorizedError("Current password is incorrect");
+    }
+    data.passwordHash = await argon2.hash(input.newPassword);
+  }
+
+  const updated = await prisma.user.update({ where: { id: userId }, data });
+  return {
+    id: updated.id,
+    email: updated.email,
+    displayName: updated.displayName,
+    role: updated.role,
+  };
 }
