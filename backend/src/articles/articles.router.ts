@@ -56,3 +56,15 @@ articlesRouter.patch(
     res.status(200).json(revision);
   },
 );
+
+/// docs/26 §1.5 — every revision ever frozen, oldest first, each with its
+/// review decisions. Backs PG-ADM-05 (Article history) and the feedback
+/// panel's "earlier rounds" list (docs/19 §4.5, §4.7).
+articlesRouter.get(
+  "/articles/:id/revisions",
+  requireUuidParam("id"),
+  async (req: Request<{ id: string }>, res: Response) => {
+    const user = CurrentUser(req);
+    res.status(200).json(await articlesService.getRevisionHistory(user, req.params.id));
+  },
+);
