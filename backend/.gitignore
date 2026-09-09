@@ -4,3 +4,9 @@ dist/
 .env.*
 !.env.example
 *.log
+
+# Ad-hoc local verification scripts (e.g. against an ephemeral embedded
+# Postgres) — never committed; delete after use.
+verify-*.ts
+verify-*.mjs
+.verify-pgdata/

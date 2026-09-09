@@ -2,9 +2,12 @@
   "name": "today-news-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Today_news API — database layer (Phase 4B)",
+  "description": "Today_news API — Express backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",
@@ -12,21 +15,32 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:diff:init": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
-    "@nestjs/common": "12.0.1",
-    "@nestjs/core": "12.0.1",
     "@prisma/client": "6.19.3",
-    "reflect-metadata": "0.2.2",
-    "rxjs": "7.8.1"
+    "argon2": "0.45.1",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "express-rate-limit": "8.7.0",
+    "reflect-metadata": "0.2.2"
   },
   "devDependencies": {
+    "@types/cookie-parser": "1.4.10",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
     "@types/node": "22.10.2",
+    "jest": "30.5.1",
     "prisma": "6.19.3",
+    "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
   }
