@@ -94,8 +94,15 @@ model User {
   role          UserRole
   status        UserStatus @default(ACTIVE)
   deactivatedAt DateTime?  @map("deactivated_at")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  /// Single-use token backing both the admin-invitation and forgot-password
+  /// flows (docs/23 §11.3 — "same mechanism"). Added in Phase 4C-1; not part
+  /// of the Phase 4B content model, so it lives in its own migration.
+  passwordResetTokenHash String?   @unique @map("password_reset_token_hash")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   ownedArticles      Article[]         @relation("ArticleOwner")
   authoredRevisions  ArticleRevision[] @relation("RevisionAuthor")

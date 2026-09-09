@@ -2,7 +2,7 @@
   "name": "today-news-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Today_news API — database layer (Phase 4B)",
+  "description": "Today_news API — NestJS backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
   "scripts": {
     "prisma:validate": "prisma validate",
@@ -12,21 +12,37 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:diff:init": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "overrides": {
+    "fastify": "5.12.3"
+  },
   "dependencies": {
-    "@nestjs/common": "12.0.1",
-    "@nestjs/core": "12.0.1",
+    "@fastify/cookie": "11.1.2",
+    "@nestjs/common": "11.2.3",
+    "@nestjs/config": "4.0.4",
+    "@nestjs/core": "11.2.3",
+    "@nestjs/platform-fastify": "11.2.3",
+    "@nestjs/throttler": "6.5.0",
     "@prisma/client": "6.19.3",
+    "argon2": "0.45.1",
+    "class-transformer": "0.5.1",
+    "class-validator": "0.15.1",
+    "fastify": "5.12.3",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.1"
   },
   "devDependencies": {
+    "@nestjs/testing": "11.2.3",
+    "@types/jest": "30.0.0",
     "@types/node": "22.10.2",
+    "jest": "30.5.1",
     "prisma": "6.19.3",
+    "ts-jest": "29.4.12",
     "ts-node": "10.9.2",
     "typescript": "5.9.3"
   }
