@@ -6,13 +6,17 @@ import { validateBody } from "../common/middleware/validate-body.middleware";
 import { requireUuidParam } from "../common/middleware/uuid-param.middleware";
 import { requireCapability } from "../common/middleware/require-capability.middleware";
 
-/// Mounted in app.ts after sessionAuth — every route here also needs
-/// user:manage (docs/03 §2.3: admin only).
+/// Mounted at /users in app.ts (`app.use("/users", usersRouter)`), after
+/// sessionAuth — every route here also needs user:manage (docs/03 §2.3:
+/// admin only). IMPORTANT: this router MUST be mounted with the "/users"
+/// prefix, not bare — `router.use(requireCapability(...))` with no path
+/// matches every request that reaches this router, so mounting it
+/// unprefixed would gate every other route in the app on user:manage too.
 export const usersRouter = Router();
 usersRouter.use(requireCapability("user:manage"));
 
 usersRouter.post(
-  "/users",
+  "/",
   validateBody(InviteUserDto),
   async (req: Request<unknown, unknown, InviteUserDto>, res: Response) => {
     const result = await usersService.invite(req.body.email, req.body.displayName, req.body.role);
@@ -20,12 +24,12 @@ usersRouter.post(
   },
 );
 
-usersRouter.get("/users", async (_req: Request, res: Response) => {
+usersRouter.get("/", async (_req: Request, res: Response) => {
   res.status(200).json(await usersService.list());
 });
 
 usersRouter.patch(
-  "/users/:id/role",
+  "/:id/role",
   requireUuidParam("id"),
   validateBody(ChangeRoleDto),
   async (req: Request<{ id: string }, unknown, ChangeRoleDto>, res: Response) => {
@@ -34,7 +38,7 @@ usersRouter.patch(
 );
 
 usersRouter.patch(
-  "/users/:id/deactivate",
+  "/:id/deactivate",
   requireUuidParam("id"),
   async (req: Request<{ id: string }>, res: Response) => {
     res.status(200).json(await usersService.deactivate(req.params.id));
@@ -42,7 +46,7 @@ usersRouter.patch(
 );
 
 usersRouter.patch(
-  "/users/:id/reactivate",
+  "/:id/reactivate",
   requireUuidParam("id"),
   async (req: Request<{ id: string }>, res: Response) => {
     res.status(200).json(await usersService.reactivate(req.params.id));
