@@ -1,0 +1,399 @@
+// Today_news — database layer (Phase 4B)
+//
+// Source of truth for every decision this schema encodes:
+//   docs/26-data-model-decisions.md   (binding decisions, DM-01..DM-10)
+//   docs/23-architecture-discovery.md (§9 database architecture)
+//   docs/04-article-lifecycle.md      (state machine)
+//   docs/11-article-workflows.md      (transition table)
+//
+// A few invariants from docs/26 §1.7 and §4.3 cannot be expressed with plain
+// Prisma column/relation attributes on PostgreSQL. Where that is true, the
+// column shape needed to support the safeguard is defined here, and the
+// safeguard itself (CHECK constraints, triggers, composite foreign key) is
+// appended as raw SQL at the end of the initial migration. See that file's
+// header comment for the full list and why each one is not representable in
+// this schema file directly.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  EDITOR
+  ADMIN
+
+  @@map("user_role")
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+
+  @@map("user_status")
+}
+
+/// DM-04 — never published / live / withdrawn. Replaces the earlier
+/// conflated use of "archived" for both meanings (P2-19, modelling half).
+enum ArticlePublicationStatus {
+  NEVER_PUBLISHED
+  LIVE
+  WITHDRAWN
+
+  @@map("article_publication_status")
+}
+
+/// The seven states from docs/04 §2 and docs/11 §1. No state added, none
+/// removed (docs/26 §1.3).
+enum RevisionState {
+  DRAFT
+  IN_REVIEW
+  CHANGES_REQUESTED
+  APPROVED
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+
+  @@map("revision_state")
+}
+
+/// The three admin verdicts a ReviewDecision can record. "Publish" is not a
+/// verdict — it is the mechanical transition that follows an APPROVED
+/// verdict (T10) and is recorded directly on ArticleRevision
+/// (publishedAt / publishedByUserId), not as a fourth decision type.
+enum ReviewDecisionType {
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
+
+  @@map("review_decision_type")
+}
+
+// ---------------------------------------------------------------------------
+// Users, sessions, audit
+// ---------------------------------------------------------------------------
+
+/// USR-02 one role per user. USR-03 deactivated, never deleted — status is
+/// the soft-delete mechanism for this entity, so no separate deletedAt.
+/// BR-14 (at least one active admin must always exist) cannot be expressed
+/// as a column-level constraint; it is enforced by a constraint trigger
+/// (see migration.sql) as well as in the application layer.
+model User {
+  id            String     @id @default(uuid()) @db.Uuid
+  email         String     @unique
+  passwordHash  String     @map("password_hash")
+  displayName   String     @map("display_name")
+  role          UserRole
+  status        UserStatus @default(ACTIVE)
+  deactivatedAt DateTime?  @map("deactivated_at")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  ownedArticles      Article[]         @relation("ArticleOwner")
+  authoredRevisions  ArticleRevision[] @relation("RevisionAuthor")
+  publishedRevisions ArticleRevision[] @relation("RevisionPublisher")
+  reviewDecisions    ReviewDecision[]  @relation("ReviewDecider")
+  uploadedMedia      MediaAsset[]      @relation("MediaUploader")
+  sessions           Session[]
+  auditLogs          AuditLog[]        @relation("AuditActor")
+  createdSources     Source[]          @relation("SourceCreator")
+  verifiedSources    Source[]          @relation("SourceVerifier")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+/// SEC-05 — server-side, individually revocable sessions (not JWTs).
+model Session {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  createdAt DateTime  @default(now()) @map("created_at")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  ipAddress String?   @map("ip_address")
+  userAgent String?   @map("user_agent")
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/// CAP-15, SEC-11 — append-only. INSERT/SELECT only at the database
+/// privilege level is enforced via triggers in migration.sql (DM-10).
+/// Generic over entity type (OQ-11 absorbed additively per docs/26 §5.2).
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  actor       User?    @relation("AuditActor", fields: [actorUserId], references: [id])
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  action      String
+  articleId   String?  @map("article_id") @db.Uuid
+  article     Article? @relation(fields: [articleId], references: [id])
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([entityType, entityId, createdAt])
+  @@index([articleId, createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Categories and sources
+// ---------------------------------------------------------------------------
+
+/// P2-21 — deactivated (deletedAt set), never hard-deleted. Cannot be
+/// deactivated while a LIVE article references it — enforced by trigger.
+model Category {
+  id        String    @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  articles Article[]
+
+  @@map("categories")
+}
+
+/// OQ-14 recommendation absorbed: editors create, only admins verify. Never
+/// hard-deleted while cited (soft delete via deletedAt).
+model Source {
+  id               String    @id @default(uuid()) @db.Uuid
+  name             String
+  description      String?
+  verified         Boolean   @default(false)
+  createdByUserId  String    @map("created_by_user_id") @db.Uuid
+  createdBy        User      @relation("SourceCreator", fields: [createdByUserId], references: [id])
+  verifiedByUserId String?   @map("verified_by_user_id") @db.Uuid
+  verifiedBy       User?     @relation("SourceVerifier", fields: [verifiedByUserId], references: [id])
+  verifiedAt       DateTime? @map("verified_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  articleSources ArticleSource[]
+
+  @@map("sources")
+}
+
+// ---------------------------------------------------------------------------
+// Article identity and revisions — docs/26 §1
+// ---------------------------------------------------------------------------
+
+/// The story's permanent identity. Carries no workflow state (docs/26 §1.1).
+/// BR-15 — slug unique, immutable once first published (trigger, keyed off
+/// firstPublishedAt). DM-03 — public visibility is the pointer:
+/// currentPublishedRevisionId IS NOT NULL, one predicate, enforced together
+/// with publicationStatus by a CHECK constraint (I-4).
+model Article {
+  id                String                   @id @default(uuid()) @db.Uuid
+  slug              String                   @unique
+  ownerId           String                   @map("owner_id") @db.Uuid
+  owner             User                     @relation("ArticleOwner", fields: [ownerId], references: [id])
+  categoryId        String                   @map("category_id") @db.Uuid
+  category          Category                 @relation(fields: [categoryId], references: [id])
+  bylineOverride    String?                  @map("byline_override")
+  publicationStatus ArticlePublicationStatus @default(NEVER_PUBLISHED) @map("publication_status")
+
+  /// 0..1 pointer to the revision readers see (docs/26 §1.1, DM-03).
+  /// The composite foreign key to ArticleRevision(id, articleId) — added in
+  /// migration.sql via this same relation — guarantees the pointer can only
+  /// ever reference a revision that belongs to THIS article (invariant I-3).
+  currentPublishedRevisionId String?          @unique @map("current_published_revision_id") @db.Uuid
+  currentPublishedRevision   ArticleRevision? @relation("CurrentPublishedRevision", fields: [currentPublishedRevisionId, id], references: [id, articleId])
+
+  /// Denormalised copy of the current published revision's publishedAt, kept
+  /// in sync by the transition service. Exists so the homepage/section-page
+  /// read path can sort on Article alone without joining ArticleRevision
+  /// (docs/23 §9.5 — index the public read path first).
+  publishedAt DateTime? @map("published_at")
+
+  /// Set once, on first publish, and never cleared or changed again. Backs
+  /// the slug-immutability trigger (BR-15, I-5).
+  firstPublishedAt DateTime? @map("first_published_at")
+
+  /// Optimistic concurrency (P2-23). Auto-incremented by trigger on every
+  /// UPDATE — see migration.sql.
+  version Int @default(0)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  revisions ArticleRevision[] @relation("ArticleRevisions")
+  auditLogs AuditLog[]
+
+  // Declares the 1:1 side of the composite FK to ArticleRevision(id,
+  // articleId) explicitly, so Prisma recognises CurrentPublishedRevision as
+  // one-to-one rather than one-to-many. Trivially satisfiable (id alone is
+  // already the primary key) — this exists only to satisfy Prisma's
+  // relation-validation rule, not to add a new constraint.
+  @@unique([currentPublishedRevisionId, id])
+  // Public read paths (docs/23 §9.5): homepage/feeds and section pages.
+  @@index([publicationStatus, publishedAt])
+  @@index([categoryId, publicationStatus, publishedAt])
+  // Editorial query: "my articles".
+  @@index([ownerId])
+  @@map("articles")
+}
+
+/// One version of the content; carries all workflow state (docs/26 §1.1).
+/// Editable only in DRAFT / CHANGES_REQUESTED (§1.3); every other state is
+/// frozen by application-level rule (I-6 — deliberately not a DB constraint,
+/// see docs/26 §1.7: the same row's `state` column legitimately keeps
+/// changing across frozen states as the transition service drives it
+/// forward, so a blanket DB-level "no UPDATE" trigger would be wrong here).
+///
+/// openMarker / publishedMarker exist purely to carry the two partial-
+/// uniqueness invariants (I-1, I-2) as ordinary unique constraints, since
+/// PostgreSQL treats NULL <> NULL and therefore does not count NULLs
+/// against a unique index. Application code never sets these two columns —
+/// a BEFORE INSERT OR UPDATE trigger (migration.sql) derives them from
+/// `state` on every write, so they cannot drift out of sync with it:
+///   openMarker      := true  while state ∈ {DRAFT, IN_REVIEW,
+///                                            CHANGES_REQUESTED, APPROVED}
+///                   := null  otherwise
+///   publishedMarker := true  while state = PUBLISHED
+///                   := null  otherwise
+model ArticleRevision {
+  id        String        @id @default(uuid()) @db.Uuid
+  articleId String        @map("article_id") @db.Uuid
+  article   Article       @relation("ArticleRevisions", fields: [articleId], references: [id])
+  state     RevisionState
+
+  openMarker      Boolean? @map("open_marker")
+  publishedMarker Boolean? @map("published_marker")
+
+  // Content — DM-07: structured blocks as validated JSON, never raw HTML.
+  // Nullable because a brand-new DRAFT may not have them yet; BR-09
+  // (headline/summary/body required to leave DRAFT) is enforced by a CHECK
+  // constraint in migration.sql.
+  headline       String?
+  summary        String?
+  body           Json?
+  /// Derived, write-time projection of `body` for full-text search
+  /// (docs/26 §3.7). Never hand-edited. The search index itself is added
+  /// only if/when OQ-19 ships search — this column alone costs nothing.
+  bodyPlain      String? @map("body_plain")
+  seoTitle       String? @map("seo_title")
+  seoDescription String? @map("seo_description")
+
+  // Featured image. Alt text and credit live here, not on MediaAsset,
+  // because the same photo can be captioned differently per story and each
+  // published version must preserve the caption it went out with
+  // (docs/26 §4.2). A11Y-03/SEO-12 — alt text required before attachment,
+  // enforced by CHECK constraint.
+  featuredImageId      String?     @map("featured_image_id") @db.Uuid
+  featuredImage        MediaAsset? @relation("FeaturedImage", fields: [featuredImageId], references: [id])
+  featuredImageAlt     String?     @map("featured_image_alt")
+  featuredImageCredit  String?     @map("featured_image_credit")
+  featuredImageCaption String?     @map("featured_image_caption")
+
+  createdByUserId String @map("created_by_user_id") @db.Uuid
+  createdBy       User   @relation("RevisionAuthor", fields: [createdByUserId], references: [id])
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  submittedAt DateTime? @map("submitted_at")
+
+  // BR-06 — publish records the acting admin and the time. Written in the
+  // same transaction as the state change by the transition service.
+  publishedAt       DateTime? @map("published_at")
+  publishedByUserId String?   @map("published_by_user_id") @db.Uuid
+  publishedBy       User?     @relation("RevisionPublisher", fields: [publishedByUserId], references: [id])
+
+  archivedAt DateTime? @map("archived_at")
+
+  /// Optimistic concurrency (P2-23). Auto-incremented by trigger.
+  version Int @default(0)
+
+  reviewDecisions ReviewDecision[]
+  sources         ArticleSource[]
+  currentFor      Article?         @relation("CurrentPublishedRevision")
+
+  // Supports the composite FK from Article.currentPublishedRevisionId (I-3).
+  @@unique([id, articleId])
+  // I-1 — at most one open revision per article.
+  @@unique([articleId, openMarker])
+  // I-2 — at most one PUBLISHED revision per article.
+  @@unique([articleId, publishedMarker])
+  @@index([articleId, createdAt])
+  // Review queue (docs/23 Flow 5): WHERE state = IN_REVIEW ORDER BY submittedAt.
+  @@index([state, submittedAt])
+  @@index([createdByUserId])
+  @@map("article_revisions")
+}
+
+/// A citation on a specific revision, not the article (docs/26 §4.2 — a
+/// correction may change what a story cites; the published snapshot must
+/// record what was actually cited at the time).
+model ArticleSource {
+  id                String          @id @default(uuid()) @db.Uuid
+  articleRevisionId String          @map("article_revision_id") @db.Uuid
+  articleRevision   ArticleRevision @relation(fields: [articleRevisionId], references: [id])
+  sourceId          String          @map("source_id") @db.Uuid
+  source            Source          @relation(fields: [sourceId], references: [id])
+  position          Int
+  /// Per-source public flag (OQ-24 absorbed — shared list + per-source
+  /// visibility choice).
+  isPublic          Boolean         @default(true) @map("is_public")
+  note              String?
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  @@unique([articleRevisionId, sourceId])
+  @@index([articleRevisionId, position])
+  @@map("article_sources")
+}
+
+/// One admin decision on one revision (APPROVE / REQUEST_CHANGES / REJECT).
+/// Immutable — never updated, enforced by trigger alongside AuditLog.
+/// Non-empty comment/reason for REQUEST_CHANGES/REJECT (BR-07, BR-08) is a
+/// CHECK constraint in migration.sql.
+model ReviewDecision {
+  id                String             @id @default(uuid()) @db.Uuid
+  articleRevisionId String             @map("article_revision_id") @db.Uuid
+  articleRevision   ArticleRevision    @relation(fields: [articleRevisionId], references: [id])
+  decision          ReviewDecisionType
+  comment           String?
+  decidedByUserId   String             @map("decided_by_user_id") @db.Uuid
+  decidedBy         User               @relation("ReviewDecider", fields: [decidedByUserId], references: [id])
+  decidedAt         DateTime           @default(now()) @map("decided_at")
+
+  @@index([articleRevisionId, decidedAt])
+  @@map("review_decisions")
+}
+
+// ---------------------------------------------------------------------------
+// Media — docs/23 §14
+// ---------------------------------------------------------------------------
+
+/// Storage key and file metadata only (docs/26 §4.1). Caption-like fields
+/// (alt, credit) deliberately live on ArticleRevision instead — see there.
+model MediaAsset {
+  id               String    @id @default(uuid()) @db.Uuid
+  storageKey       String    @unique @map("storage_key")
+  originalFilename String?   @map("original_filename")
+  mimeType         String    @map("mime_type")
+  sizeBytes        Int       @map("size_bytes")
+  width            Int?
+  height           Int?
+  checksum         String?
+  uploadedByUserId String    @map("uploaded_by_user_id") @db.Uuid
+  uploadedBy       User      @relation("MediaUploader", fields: [uploadedByUserId], references: [id])
+  createdAt        DateTime  @default(now()) @map("created_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  featuredInRevisions ArticleRevision[] @relation("FeaturedImage")
+
+  @@map("media_assets")
+}

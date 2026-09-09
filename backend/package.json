@@ -1,0 +1,33 @@
+{
+  "name": "today-news-backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Today_news API — database layer (Phase 4B)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "prisma:validate": "prisma validate",
+    "prisma:format": "prisma format",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:diff:init": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "12.0.1",
+    "@nestjs/core": "12.0.1",
+    "@prisma/client": "6.19.3",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "prisma": "6.19.3",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
+}
