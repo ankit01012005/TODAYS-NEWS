@@ -1,4 +1,4 @@
-import { Article, ArticleRevision } from "@prisma/client";
+import { Article, ArticleRevision, ReviewDecision } from "@prisma/client";
 
 /// What an API response may contain — the DB row shape, minus nothing
 /// sensitive (unlike User, there's no secret field on these two models),
@@ -67,6 +67,43 @@ export function toRevisionView(revision: ArticleRevision): RevisionView {
     publishedByUserId: revision.publishedByUserId,
     archivedAt: revision.archivedAt,
     version: revision.version,
+  };
+}
+
+/// One admin decision, as returned to a client — docs/19 §4.5's feedback
+/// panel ("admin name, time, and the comment in full").
+export interface ReviewDecisionView {
+  id: string;
+  decision: ReviewDecision["decision"];
+  comment: string | null;
+  decidedByUserId: string;
+  decidedAt: Date;
+}
+
+export function toReviewDecisionView(decision: ReviewDecision): ReviewDecisionView {
+  return {
+    id: decision.id,
+    decision: decision.decision,
+    comment: decision.comment,
+    decidedByUserId: decision.decidedByUserId,
+    decidedAt: decision.decidedAt,
+  };
+}
+
+/// docs/26 §1.5's "revision history — what complete means": every revision
+/// ever frozen, kept permanently, each with the decision(s) made on it.
+/// Backs PG-ADM-05 (Article history) and the feedback panel's "earlier
+/// rounds" list (docs/19 §4.5, §4.7).
+export interface RevisionHistoryEntryView extends RevisionView {
+  reviewDecisions: ReviewDecisionView[];
+}
+
+export function toRevisionHistoryEntryView(
+  revision: ArticleRevision & { reviewDecisions: ReviewDecision[] },
+): RevisionHistoryEntryView {
+  return {
+    ...toRevisionView(revision),
+    reviewDecisions: revision.reviewDecisions.map(toReviewDecisionView),
   };
 }
 
