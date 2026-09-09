@@ -57,5 +57,7 @@ export interface PublicArticleSummary {
   category: { name: string; slug: string };
   headline: string;
   summary: string;
+  byline: string;
+  featuredImage: { url: string; alt: string } | null;
   publishedAt: string;
 }
