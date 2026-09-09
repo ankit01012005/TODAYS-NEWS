@@ -8,6 +8,8 @@ import { NotFoundError } from "./common/http-errors";
 import { healthRouter } from "./health/health.router";
 import { authPublicRouter, authProtectedRouter } from "./auth/auth.router";
 import { usersRouter } from "./users/users.router";
+import { articlesRouter } from "./articles/articles.router";
+import { reviewsRouter } from "./articles/reviews.router";
 
 /// Builds the Express app without starting a listener — main.ts calls
 /// listen(), tests can exercise the app directly. Route registration order
@@ -33,7 +35,9 @@ export function createApp(): Express {
   // --- Everything below requires a session ---
   app.use(sessionAuth);
   app.use(authProtectedRouter);
-  app.use(usersRouter);
+  app.use("/users", usersRouter);
+  app.use(articlesRouter);
+  app.use(reviewsRouter);
 
   // Unmatched route -> our JSON 404, not Express's default HTML page.
   app.use((_req: Request, _res: Response, next: NextFunction) => {
