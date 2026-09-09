@@ -1,6 +1,7 @@
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { ArticleCard } from "@/components/public/ArticleCard";
+import { EmptyState } from "@/components/public/EmptyState";
 import { getPublishedArticles } from "@/lib/api/public";
 
 export default async function HomePage() {
@@ -23,23 +24,13 @@ export default async function HomePage() {
             ) : null}
           </>
         ) : (
-          <EmptyHomepage />
+          <EmptyState
+            heading="No stories published yet"
+            body="Today News is just getting started. Check back soon for the latest coverage."
+          />
         )}
       </main>
       <PublicFooter />
     </>
-  );
-}
-
-/// docs/12 §0 — "no stories published yet... must look deliberate, not
-/// broken." The site's actual day-one state (docs/12 PG-PUB-01).
-function EmptyHomepage() {
-  return (
-    <div className="py-space-10 text-center">
-      <h1 className="text-heading-3 text-ink">No stories published yet</h1>
-      <p className="mx-auto mt-space-3 max-w-(--width-measure) text-body text-ink-secondary">
-        Today News is just getting started. Check back soon for the latest coverage.
-      </p>
-    </div>
   );
 }

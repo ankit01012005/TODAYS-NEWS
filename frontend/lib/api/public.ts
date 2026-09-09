@@ -3,6 +3,7 @@ import {
   PublicArticleListResult,
   PublicArticleView,
   PublicCategoryListResult,
+  PublicCategoryRef,
 } from "./public-types";
 
 /// Server components call these directly at render/revalidation time
@@ -39,6 +40,13 @@ export async function getPublishedArticle(
   return publicFetch<PublicArticleView>(
     `/public/articles/${encodeURIComponent(categorySlug)}/${encodeURIComponent(slug)}`,
   );
+}
+
+/// docs/19 §2.4 — the masthead's section nav needs every category on every
+/// public page, not just section pages.
+export async function getCategories(): Promise<PublicCategoryRef[]> {
+  const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
+  return result ?? [];
 }
 
 export async function getCategoryWithArticles(
