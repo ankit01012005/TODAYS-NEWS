@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { MulterError } from "multer";
 import { HttpError } from "../http-errors";
 
 /// Express's four-argument error middleware — must be registered LAST
@@ -13,6 +14,11 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void {
+  if (err instanceof MulterError) {
+    res.status(400).json({ statusCode: 400, correlationId: req.id, message: `Upload rejected: ${err.message}` });
+    return;
+  }
+
   if (err instanceof HttpError) {
     res.status(err.statusCode).json({
       statusCode: err.statusCode,
