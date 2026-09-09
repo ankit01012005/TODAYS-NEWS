@@ -13,3 +13,7 @@ verify-*.mjs
 
 # Local-disk media storage placeholder (media/storage.ts) — dev only.
 uploads/
+
+# Persistent local dev database (scripts/dev-db.cjs) — machine-local data,
+# never committed.
+.devdb-data/
