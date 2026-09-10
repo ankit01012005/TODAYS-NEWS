@@ -2,7 +2,7 @@ import { Article, ArticleRevision, Prisma } from "@prisma/client";
 import { prisma } from "../db";
 import { AuthenticatedUser } from "../common/authenticated-user";
 import { BadRequestError, ConflictError, NotFoundError } from "../common/http-errors";
-import { assertNotSelfApproval, assertOwnerOrAdmin } from "./authorization";
+import { assertOwnerOrAdmin } from "./authorization";
 import { writeAudit } from "../common/audit";
 
 type TxClient = Prisma.TransactionClient;
@@ -280,9 +280,6 @@ export async function approveAndPublish(
     const article = await loadArticleOr404(tx, articleId);
     const revision = await loadOpenRevisionOrThrow(tx, articleId);
     assertRevisionState(revision, ["IN_REVIEW"]);
-    // BR-13 — checked here for a clean message; the Phase 4B database
-    // triggers are the defense-in-depth backstop.
-    assertNotSelfApproval(user, article, revision);
 
     await tx.reviewDecision.create({
       data: { articleRevisionId: revision.id, decision: "APPROVED", decidedByUserId: user.id },

@@ -1,7 +1,16 @@
 # 03 — User Roles and Permissions
 
 **Stage:** Product discovery (pre-development)
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-11
+
+**[CONFIRMED — resolved 2026-09-11]** Admin and editor are a strict split,
+not a hierarchy: editor authors, admin reviews and manages, and neither
+capability set contains the other. Previously (§2.3, §6.1) admin could also
+author, which required a second admin to review a self-written article
+(`BR-13`); that requirement is gone along with admin's authoring
+capabilities, so exactly one active admin is now required at all times
+instead of at least one (`BR-14`, extended). See §2.3, §5, and §6.1 below,
+each marked where this changed.
 
 **[CONFIRMED]** Three primary roles exist: **ADMIN**, **EDITOR**, **READER**.
 **[CONFIRMED]** Their permissions are *not* final. What follows is a proposal.
@@ -67,13 +76,12 @@ undecided — OQ-05. The rest of this document assumes the narrow answer
 ("own articles only") because widening a permission later is easy and safe,
 while narrowing one after people have relied on it is disruptive.
 
-### 2.3 Admin — [CONFIRMED]
+### 2.3 Admin — [CONFIRMED — revised 2026-09-11]
 
 **Responsible for:** everything that reaches the public. This is an accountability
 role, not just a technical one.
 
 **Can do:**
-- Everything an editor can do
 - See every article in every state
 - Approve and publish
 - Request changes with written feedback
@@ -83,11 +91,15 @@ role, not just a technical one.
 - **[PROPOSED]** Unpublish and archive
 - **[PROPOSED]** View article history and the audit trail
 
-**Cannot do — [PROPOSED]:**
+**Cannot do — [CONFIRMED — resolved 2026-09-11]:**
+- **Author anything.** Create an article, save a draft, submit for review,
+  withdraw a submission, or start a correction on a published article. Admin
+  has no route to any authoring capability, by construction, the same way
+  editor has no route to any `review:*` capability (BR-05) — the split is
+  symmetric. This reverses the original proposal below ("Everything an
+  editor can do"); see §6.1 for why that no longer applies.
 - Edit or delete the audit trail (SEC-11). A record that can be rewritten is not
   a record.
-- **[CONFIRMED — resolved 2026-09-09]** Approve or publish an article they wrote
-  or last revised. A second admin must review it. See section 6 below and `BR-13`.
 
 ---
 
@@ -98,21 +110,25 @@ question.
 
 ### 3.1 Articles
 
+**[CONFIRMED — revised 2026-09-11]** Every admin cell below that used to read
+✅ by inheriting "everything an editor can do" now reads ❌ — admin has no
+authoring capability at all. See §2.3.
+
 | Action | Reader | Editor | Admin |
 |---|---|---|---|
 | View published articles | ✅ | ✅ | ✅ |
 | View any unpublished article | ❌ | ⚠️ own only (OQ-05) | ✅ |
-| Create an article | ❌ | ✅ | ✅ |
-| Edit own draft | ❌ | ✅ | ✅ |
-| Edit another user's draft | ❌ | ❌ (OQ-05) | ⚠️ (OQ-02) |
-| Edit own article while under review | ❌ | ⚠️ (OQ-03) | ✅ |
-| Withdraw own submission before review | ❌ | ⚠️ (OQ-04) | ✅ |
-| Submit for review | ❌ | ✅ | ✅ |
+| Create an article | ❌ | ✅ | ❌ |
+| Edit own draft | ❌ | ✅ | ❌ (admin owns none) |
+| Edit another user's draft | ❌ | ❌ (OQ-05) | ❌ — resolves OQ-02: not just "another user's," no draft at all |
+| Edit own article while under review | ❌ | ⚠️ (OQ-03) | ❌ (admin owns none) |
+| Withdraw own submission before review | ❌ | ⚠️ (OQ-04) | ❌ (admin owns none) |
+| Submit for review | ❌ | ✅ | ❌ |
 | Approve | ❌ | ❌ | ✅ |
 | **Publish** | ❌ | ❌ | ✅ |
 | Request changes | ❌ | ❌ | ✅ |
 | Reject | ❌ | ❌ | ✅ |
-| Edit a published article | ❌ | ⚠️ (OQ-08) | ⚠️ (OQ-08) |
+| Edit a published article (start a correction) | ❌ | ⚠️ (OQ-08) | ❌ — resolves OQ-08 for admin's column only; editor's stays open |
 | Unpublish | ❌ | ❌ | ⚠️ (OQ-16) |
 | Schedule publication | ❌ | ❌ | ⚠️ (OQ-07) |
 | Archive | ❌ | ❌ | ⚠️ (OQ-13) |
@@ -125,9 +141,9 @@ question.
 |---|---|---|---|
 | See sources on a published article | ⚠️ (OQ-24) | ✅ | ✅ |
 | Browse the source list in the back-office | ❌ | ✅ | ✅ |
-| Create a source | ❌ | ⚠️ (OQ-14) | ✅ |
+| Create a source | ❌ | ⚠️ (OQ-14) | ❌ — revised 2026-09-11, admin cannot author |
 | Edit / delete a source | ❌ | ❌ | ✅ |
-| Attach a source to own article | ❌ | ✅ | ✅ |
+| Attach a source to own article | ❌ | ✅ | ❌ (admin owns no article) |
 | Set a source's verification status | ❌ | ❌ | ⚠️ (OQ-14) |
 
 ### 3.3 Users and configuration
@@ -180,25 +196,38 @@ question.
 ## 5. Assumptions in this model
 
 - **[ASSUMPTION]** One role per user. A person is either an editor or an admin,
-  not both. Simpler to reason about and to display. If someone needs both, they
-  get the higher role.
+  not both. Simpler to reason about and to display. **[REVISED 2026-09-11]**
+  There is no "higher role" to fall back on any more if someone needs both —
+  the two capability sets are disjoint (§2.3), not nested. Someone who needs
+  to both author and review needs two separate accounts.
 - **[ASSUMPTION]** Roles are global, not per-section. There is no "Sports editor
   who can only touch Sports". If the newsroom is organised by desk with real
   boundaries, say so now — it changes the permission model substantially.
 - **[ASSUMPTION]** Staff accounts are created by admins. No public sign-up page
   exists. See OQ-27.
-- **[ASSUMPTION]** There is no separate "super admin" or platform-owner role in
-  V1. All admins are equal. See OQ-10.
+- **[CONFIRMED — revised 2026-09-11]** Exactly one active admin exists at all
+  times (`BR-14`, extended from "at least one"). There is no "super admin" or
+  platform-owner role, and no second admin either — a consequence of admin no
+  longer authoring: the old two-admin-minimum reasoning (§6.1) no longer
+  applies. `OQ-10` and `OQ-36` are closed by this.
 
 ---
 
 ## 6. Two role questions that deserve special attention
 
-### 6.1 Can an admin approve their own article? — **[CONFIRMED — NO]**, resolved 2026-09-09
+### 6.1 Can an admin approve their own article? — **[SUPERSEDED]**, resolved 2026-09-09, superseded 2026-09-11
 
-**Decision: an admin may not approve or publish an article they wrote or last
-revised.** A second admin must review it. `BR-13` now states this, and `OQ-29` is
-closed.
+**The question itself is now moot.** Admin lost every authoring capability on
+2026-09-11 (§2.3) — an admin can no longer own or last-revise an article, so
+there is no self-authored article for them to approve. `BR-13` is superseded;
+`26-data-model-decisions.md` §2 has the corresponding note. The 2026-09-09
+reasoning below is kept for history — it explains why admin-can-also-write was
+reversed rather than kept and worked around, which is worth remembering even
+though the mechanism it argues for (block self-approval) no longer applies.
+
+**Original decision (2026-09-09): an admin may not approve or publish an
+article they wrote or last revised.** A second admin must review it. `BR-13`
+stated this, and `OQ-29` was closed.
 
 Admins can also write. If an admin writes an article and then approves it, the
 review step disappears for exactly the people with the most power to cause harm.

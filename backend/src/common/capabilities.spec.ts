@@ -19,10 +19,20 @@ describe("roleHasCapability", () => {
     expect(roleHasCapability("EDITOR", "category:manage")).toBe(false);
   });
 
-  it("gives admins everything an editor has, plus the privileged actions", () => {
-    expect(roleHasCapability("ADMIN", "article:create")).toBe(true);
+  it("gives admins the review and management capabilities", () => {
+    expect(roleHasCapability("ADMIN", "article:view-any")).toBe(true);
     expect(roleHasCapability("ADMIN", "review:publish")).toBe(true);
     expect(roleHasCapability("ADMIN", "user:manage")).toBe(true);
     expect(roleHasCapability("ADMIN", "audit:view")).toBe(true);
+  });
+
+  it("never gives admins an authoring capability — the split is strict, not a hierarchy", () => {
+    expect(roleHasCapability("ADMIN", "article:create")).toBe(false);
+    expect(roleHasCapability("ADMIN", "article:save")).toBe(false);
+    expect(roleHasCapability("ADMIN", "article:submit")).toBe(false);
+    expect(roleHasCapability("ADMIN", "article:withdraw")).toBe(false);
+    expect(roleHasCapability("ADMIN", "article:correct")).toBe(false);
+    expect(roleHasCapability("ADMIN", "source:create")).toBe(false);
+    expect(roleHasCapability("ADMIN", "media:upload")).toBe(false);
   });
 });

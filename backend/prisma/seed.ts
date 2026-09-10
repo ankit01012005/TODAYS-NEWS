@@ -19,7 +19,6 @@ const prisma = new PrismaClient();
 // through the real API, 400'd with "categoryId must be a UUID".
 const IDS = {
   adminOne: "00000000-0000-4000-8000-000000000001",
-  adminTwo: "00000000-0000-4000-8000-000000000002",
   editorOne: "00000000-0000-4000-8000-000000000003",
   category: "00000000-0000-4000-8000-000000000010",
   source: "00000000-0000-4000-8000-000000000020",
@@ -44,22 +43,13 @@ async function main() {
     return;
   }
 
-  const [adminOne, adminTwo, editorOne] = await Promise.all([
+  const [adminOne, editorOne] = await Promise.all([
     prisma.user.create({
       data: {
         id: IDS.adminOne,
         email: "admin.one@dev.local",
         passwordHash: DEV_PASSWORD_HASH,
         displayName: "Admin One",
-        role: "ADMIN",
-      },
-    }),
-    prisma.user.create({
-      data: {
-        id: IDS.adminTwo,
-        email: "admin.two@dev.local",
-        passwordHash: DEV_PASSWORD_HASH,
-        displayName: "Admin Two",
         role: "ADMIN",
       },
     }),
@@ -103,8 +93,9 @@ async function main() {
 
   // --- Article 1: taken through the full lifecycle to PUBLISHED, to
   // exercise the revision pointer (I-3), sources, media, review decisions
-  // and audit entries together. Approved/published by adminOne, who is
-  // neither the owner nor the revision author (BR-13). ---
+  // and audit entries together. Owned and authored by editorOne, approved
+  // and published by adminOne — admin never authors (see capabilities.ts),
+  // so there is no self-approval case to avoid here. ---
   const article = await prisma.article.create({
     data: {
       id: IDS.articlePublished,
@@ -232,7 +223,7 @@ async function main() {
   });
 
   console.log("Seed complete:", {
-    users: [adminOne.email, adminTwo.email, editorOne.email],
+    users: [adminOne.email, editorOne.email],
     articles: [article.slug, draftArticle.slug],
   });
 }

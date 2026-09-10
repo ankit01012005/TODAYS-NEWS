@@ -21,9 +21,11 @@ export default async function ArticlesPage() {
     <CmsShell user={user}>
       <div className="flex items-center justify-between">
         <h1 className="text-heading-2 text-ink">{isAdmin ? "All Articles" : "My Articles"}</h1>
-        <Link href="/staff/articles/new">
-          <Button variant="primary">Write a new article</Button>
-        </Link>
+        {isAdmin ? null : (
+          <Link href="/staff/articles/new">
+            <Button variant="primary">Write a new article</Button>
+          </Link>
+        )}
       </div>
       <div className="mt-space-5">
         <MyArticlesList articles={articles} users={users} />

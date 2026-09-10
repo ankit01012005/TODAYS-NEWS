@@ -1,5 +1,5 @@
 import { AuthenticatedUser } from "../common/authenticated-user";
-import { BadRequestError, ConflictError, ForbiddenError } from "../common/http-errors";
+import { BadRequestError, ConflictError } from "../common/http-errors";
 
 const editor: AuthenticatedUser = { id: "editor-1", email: "e@test.local", displayName: "E", role: "EDITOR" };
 const admin: AuthenticatedUser = { id: "admin-1", email: "a@test.local", displayName: "A", role: "ADMIN" };
@@ -94,44 +94,6 @@ describe("transition.service", () => {
     tx.articleRevision.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(transitions.submitForReview(editor, "a1", 5)).rejects.toThrow(ConflictError);
-  });
-
-  it("approveAndPublish refuses self-approval by the article owner — BR-13", async () => {
-    tx.article.findUnique.mockResolvedValue({
-      id: "a1",
-      ownerId: admin.id, // admin owns the article
-      currentPublishedRevisionId: null,
-      firstPublishedAt: null,
-      deletedAt: null,
-    });
-    tx.articleRevision.findFirst.mockResolvedValue({
-      id: "r1",
-      articleId: "a1",
-      state: "IN_REVIEW",
-      createdByUserId: editor.id,
-    });
-
-    await expect(transitions.approveAndPublish(admin, "a1", 0)).rejects.toThrow(ForbiddenError);
-    expect(tx.reviewDecision.create).not.toHaveBeenCalled();
-    expect(tx.articleRevision.updateMany).not.toHaveBeenCalled();
-  });
-
-  it("approveAndPublish refuses self-approval by the revision's author", async () => {
-    tx.article.findUnique.mockResolvedValue({
-      id: "a1",
-      ownerId: editor.id,
-      currentPublishedRevisionId: null,
-      firstPublishedAt: null,
-      deletedAt: null,
-    });
-    tx.articleRevision.findFirst.mockResolvedValue({
-      id: "r1",
-      articleId: "a1",
-      state: "IN_REVIEW",
-      createdByUserId: admin.id, // admin substantially rewrote it
-    });
-
-    await expect(transitions.approveAndPublish(admin, "a1", 0)).rejects.toThrow(ForbiddenError);
   });
 
   it("approveAndPublish archives the previously live revision before publishing the new one — I-2", async () => {
