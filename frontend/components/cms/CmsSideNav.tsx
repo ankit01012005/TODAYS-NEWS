@@ -11,16 +11,22 @@ interface NavItem {
 
 /// docs/19 §2.4 — persistent at md+, a sheet at xs. Items: Dashboard,
 /// (Review queue — admin), My Articles / All Articles, and for admins
-/// Users, Sources, Categories. Only the editor items exist in this phase;
-/// the admin-only items are added by 5D without reworking this component
-/// (docs/19 §0: "one system, three densities" — the shell is shared, the
-/// item list is what changes with role).
+/// Users, Sources, Categories (docs/19 §0: "one system, three densities" —
+/// the shell is shared, the item list is what changes with role).
 export function CmsSideNav({ user }: { user: AuthenticatedUser }) {
   const pathname = usePathname();
 
   const items: NavItem[] = [
     { href: "/staff", label: "Dashboard" },
+    ...(user.role === "ADMIN" ? [{ href: "/staff/review", label: "Review queue" }] : []),
     { href: "/staff/articles", label: user.role === "ADMIN" ? "All Articles" : "My Articles" },
+    ...(user.role === "ADMIN"
+      ? [
+          { href: "/staff/users", label: "Users" },
+          { href: "/staff/sources", label: "Sources" },
+          { href: "/staff/categories", label: "Categories" },
+        ]
+      : []),
   ];
 
   return (

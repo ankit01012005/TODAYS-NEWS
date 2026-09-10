@@ -18,6 +18,7 @@ import { BodyBlock, parseBody } from "@/lib/api/body-blocks";
 import { Alert } from "./Alert";
 import { BodyEditor } from "./BodyEditor";
 import { Button } from "./Button";
+import { ConfirmAction } from "./ConfirmAction";
 import { FeaturedImagePicker, FeaturedImageValue } from "./FeaturedImagePicker";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { SourcePicker } from "./SourcePicker";
@@ -71,6 +72,7 @@ export function ArticleEditor({
   sources,
   attachedSources,
   history,
+  viewerRole,
 }: {
   article: ArticleDetailView;
   categories: CategoryView[];
@@ -78,13 +80,24 @@ export function ArticleEditor({
   sources: SourceView[];
   attachedSources: ArticleSourceView[];
   history: RevisionHistoryEntryView[];
+  viewerRole: "EDITOR" | "ADMIN";
 }) {
   const router = useRouter();
   const latestHistoryRevision = history.at(-1) ?? null;
   const displayRevision: RevisionView | null = article.openRevision ?? article.publishedRevision ?? latestHistoryRevision;
   const isEditable = article.openRevision !== null && EDITABLE_STATES.includes(article.openRevision.state);
   const isInReview = article.openRevision?.state === "IN_REVIEW";
-  const canStartCorrection = article.publicationStatus === "LIVE" && article.openRevision === null;
+  const hasNoOpenRevision = article.openRevision === null;
+  const canStartCorrection = article.publicationStatus === "LIVE" && hasNoOpenRevision;
+  const isAdmin = viewerRole === "ADMIN";
+  // Admin-only recovery actions (docs/10 A-08/A-09, docs/11 T12/T14/T15/T16)
+  // — each operates on the state a rejected/archived/live-with-no-draft
+  // article is actually in, none of which are "editable" in the Save/
+  // Submit sense above.
+  const canWithdraw = isAdmin && article.publicationStatus === "LIVE" && hasNoOpenRevision;
+  const canReopenOrArchive = isAdmin && hasNoOpenRevision && displayRevision?.state === "REJECTED";
+  const canRestore =
+    isAdmin && hasNoOpenRevision && article.publicationStatus !== "LIVE" && displayRevision?.state === "ARCHIVED";
 
   const [form, setForm] = useState<FormState>(() => toFormState(displayRevision, article));
   const [version, setVersion] = useState<number>(displayRevision?.version ?? 0);
@@ -94,6 +107,11 @@ export function ArticleEditor({
   const [submitting, setSubmitting] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [startingCorrection, setStartingCorrection] = useState(false);
+  const [reopening, setReopening] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [unpublishing, setUnpublishing] = useState(false);
+  const [unpublishReason, setUnpublishReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -204,6 +222,82 @@ export function ArticleEditor({
     }
   }
 
+  /// T14 — admin only, reopens a REJECTED story as a fresh editable DRAFT
+  /// (docs/10 A-04 "Only an admin can reopen a rejected story").
+  async function handleReopen() {
+    setError(null);
+    setReopening(true);
+    try {
+      const res = await clientFetch(`/articles/${article.id}/reopen`, { method: "POST" });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      router.refresh();
+    } finally {
+      setReopening(false);
+    }
+  }
+
+  /// T15 — admin only, retires a REJECTED story permanently (docs/10 A-09).
+  async function handleArchive() {
+    setError(null);
+    setArchiving(true);
+    try {
+      const res = await clientFetch(`/articles/${article.id}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version }),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      router.refresh();
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+  /// T16 — admin only, restores an ARCHIVED story as a fresh editable DRAFT.
+  async function handleRestore() {
+    setError(null);
+    setRestoring(true);
+    try {
+      const res = await clientFetch(`/articles/${article.id}/restore`, { method: "POST" });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      router.refresh();
+    } finally {
+      setRestoring(false);
+    }
+  }
+
+  /// T12 — admin only, takes a LIVE story down (docs/10 A-08 — "must be
+  /// fast to reach... a legal demand or a serious factual error does not
+  /// wait"). A reason is required (UnpublishDto).
+  async function handleUnpublish() {
+    setError(null);
+    setUnpublishing(true);
+    try {
+      const res = await clientFetch(`/articles/${article.id}/unpublish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version, reason: unpublishReason }),
+      });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      setUnpublishReason("");
+      router.refresh();
+    } finally {
+      setUnpublishing(false);
+    }
+  }
+
   function handleMediaUploaded(asset: MediaAssetView) {
     setMedia((m) => [asset, ...m]);
   }
@@ -232,8 +326,55 @@ export function ArticleEditor({
 
       {canStartCorrection ? (
         <Alert variant="info" title="This story is published">
-          <Button variant="secondary" size="sm" loading={startingCorrection} onClick={handleStartCorrection} className="mt-space-2">
-            Start a correction
+          <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
+            <Button variant="secondary" size="sm" loading={startingCorrection} onClick={handleStartCorrection}>
+              Start a correction
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+
+      {canWithdraw ? (
+        <Alert variant="danger" title="Withdraw this story">
+          <p className="mb-space-2">
+            Removes it from the site, listings, feed and sitemap immediately. A reason is required.
+          </p>
+          <TextAreaField
+            label="Reason"
+            rows={2}
+            value={unpublishReason}
+            onChange={(e) => setUnpublishReason(e.target.value)}
+          />
+          <div className="mt-space-2">
+            <ConfirmAction
+              label="Withdraw"
+              confirmLabel="Take this story down?"
+              variant="destructive"
+              loading={unpublishing}
+              disabled={unpublishReason.trim().length === 0}
+              onConfirm={handleUnpublish}
+            />
+          </div>
+        </Alert>
+      ) : null}
+
+      {canReopenOrArchive ? (
+        <Alert variant="attention" title="This story was rejected">
+          <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
+            <Button variant="secondary" size="sm" loading={reopening} onClick={handleReopen}>
+              Reopen as a new draft
+            </Button>
+            <Button variant="tertiary" size="sm" loading={archiving} onClick={handleArchive}>
+              Archive permanently
+            </Button>
+          </div>
+        </Alert>
+      ) : null}
+
+      {canRestore ? (
+        <Alert variant="info" title="This story is archived">
+          <Button variant="secondary" size="sm" loading={restoring} onClick={handleRestore} className="mt-space-2">
+            Restore as a new draft
           </Button>
         </Alert>
       ) : null}
@@ -325,15 +466,27 @@ export function ArticleEditor({
               Submit for review
             </Button>
             {dirty ? <span className="text-body-sm text-ink-muted">Save before submitting</span> : null}
-            <Link href={`/staff/articles/${article.id}/preview`} className="ml-auto text-body-sm text-accent underline">
-              Preview
-            </Link>
+            <div className="ml-auto flex items-center gap-x-space-4">
+              {isAdmin ? (
+                <Link href={`/staff/articles/${article.id}/history`} className="text-body-sm text-accent underline">
+                  History
+                </Link>
+              ) : null}
+              <Link href={`/staff/articles/${article.id}/preview`} className="text-body-sm text-accent underline">
+                Preview
+              </Link>
+            </div>
           </div>
         ) : (
-          <div className="border-t border-rule pt-space-4">
+          <div className="flex items-center gap-x-space-4 border-t border-rule pt-space-4">
             <Link href={`/staff/articles/${article.id}/preview`} className="text-body-sm text-accent underline">
               Preview
             </Link>
+            {isAdmin ? (
+              <Link href={`/staff/articles/${article.id}/history`} className="text-body-sm text-accent underline">
+                History
+              </Link>
+            ) : null}
           </div>
         )}
 

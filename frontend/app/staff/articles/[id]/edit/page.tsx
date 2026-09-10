@@ -43,6 +43,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ id
         sources={sources}
         attachedSources={attachedSources}
         history={history}
+        viewerRole={user.role}
       />
     </CmsShell>
   );

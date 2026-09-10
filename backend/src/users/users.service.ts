@@ -20,9 +20,17 @@ export async function invite(
   // matches no real password (nobody knows the random value).
   const placeholderPasswordHash = await argon2.hash(randomBytes(32).toString("hex"));
 
-  const user = await prisma.user.create({
-    data: { email, displayName, role, passwordHash: placeholderPasswordHash },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: { email, displayName, role, passwordHash: placeholderPasswordHash },
+    });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002") {
+      throw new ConflictError("An account with this email already exists");
+    }
+    throw error;
+  }
   const invitationToken = await issueInvitationToken(user.id);
 
   return { user: toStaffUserView(user), invitationToken };

@@ -4,19 +4,47 @@ import { CmsShell } from "@/components/cms/CmsShell";
 import { Button } from "@/components/cms/Button";
 import { Alert } from "@/components/cms/Alert";
 import { ArticleListRow } from "@/components/cms/ArticleListRow";
+import { AdminDashboard } from "@/components/cms/AdminDashboard";
 import { requireSession } from "@/lib/api/session";
-import { listMyArticles } from "@/lib/api/cms";
+import { getReviewQueue, listMyArticles } from "@/lib/api/cms";
+import { AuthenticatedUser } from "@/lib/api/auth-types";
 import { ArticleListItemView } from "@/lib/api/cms-types";
 
 export const metadata: Metadata = { title: "Dashboard — Today News", robots: { index: false } };
+
+/// PG-ADM-01 — an admin's dashboard is a different job from an editor's
+/// (docs/10 §0: "deciding" vs. "running the newsroom"), so it's a
+/// different component entirely rather than a filtered view of the same
+/// one.
+export default async function DashboardPage() {
+  const user = await requireSession();
+  if (user.role === "ADMIN") {
+    return <AdminDashboardPage user={user} />;
+  }
+  return <EditorDashboardPage user={user} />;
+}
+
+async function AdminDashboardPage({ user }: { user: AuthenticatedUser }) {
+  // listMyArticles() calls GET /articles, which returns ALL articles for
+  // an ADMIN caller (no ownership filter server-side) — same fetch
+  // /staff/articles already reuses for "All Articles".
+  const [queue, articles] = await Promise.all([getReviewQueue(), listMyArticles()]);
+  return (
+    <CmsShell user={user}>
+      <h1 className="text-heading-2 text-ink">Dashboard</h1>
+      <div className="mt-space-6">
+        <AdminDashboard queue={queue} articles={articles} />
+      </div>
+    </CmsShell>
+  );
+}
 
 /// PG-EDT-05. docs/09 §0: an editor thinks about exactly two things —
 /// "what am I working on?" and "what is waiting for me?" — every section
 /// here answers one of those. docs/09 §E-03's proposed minimum: needs-
 /// attention first (the most important thing on the page), then in-
 /// progress, waiting, recently published, write-new.
-export default async function DashboardPage() {
-  const user = await requireSession();
+async function EditorDashboardPage({ user }: { user: AuthenticatedUser }) {
   const articles = await listMyArticles();
 
   const needsAttention = articles.filter((a) => a.latestRevision?.state === "CHANGES_REQUESTED");

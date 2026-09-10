@@ -120,3 +120,40 @@ export interface MediaAssetView {
   uploadedByUserId: string;
   createdAt: string;
 }
+
+/// docs/10 A-03 (PG-ADM-02) — the review queue's row shape.
+export interface ReviewQueueEntryView extends RevisionView {
+  article: {
+    id: string;
+    slug: string;
+    ownerId: string;
+    ownerDisplayName: string;
+    category: CategoryView;
+  };
+  previouslySentBack: boolean;
+}
+
+export type UserRole = "EDITOR" | "ADMIN";
+export type UserStatus = "ACTIVE" | "DEACTIVATED";
+
+export interface StaffUserView {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string;
+}
+
+/// PG-ADM-05 — "who did what, when". Mirrors backend/src/audit/audit.view.ts.
+export interface AuditLogView {
+  id: string;
+  actorUserId: string | null;
+  actorDisplayName: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  articleId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}

@@ -10,17 +10,24 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
+// The version (4) and variant (8) nibbles below are load-bearing, not
+// decoration: class-validator's @IsUUID() (used on every DTO field that
+// accepts one of these ids, e.g. CreateArticleDto.categoryId) checks the
+// full RFC 4122 shape, not just "8-4-4-4-12 hex digits" — a plain
+// 00000000-0000-0000-... id fails that check. Found the hard way: seeding
+// with an all-zero id, then trying to create an article in that category
+// through the real API, 400'd with "categoryId must be a UUID".
 const IDS = {
-  adminOne: "00000000-0000-0000-0000-000000000001",
-  adminTwo: "00000000-0000-0000-0000-000000000002",
-  editorOne: "00000000-0000-0000-0000-000000000003",
-  category: "00000000-0000-0000-0000-000000000010",
-  source: "00000000-0000-0000-0000-000000000020",
-  media: "00000000-0000-0000-0000-000000000030",
-  articlePublished: "00000000-0000-0000-0000-000000000040",
-  revisionPublished: "00000000-0000-0000-0000-000000000041",
-  articleDraft: "00000000-0000-0000-0000-000000000050",
-  revisionDraft: "00000000-0000-0000-0000-000000000051",
+  adminOne: "00000000-0000-4000-8000-000000000001",
+  adminTwo: "00000000-0000-4000-8000-000000000002",
+  editorOne: "00000000-0000-4000-8000-000000000003",
+  category: "00000000-0000-4000-8000-000000000010",
+  source: "00000000-0000-4000-8000-000000000020",
+  media: "00000000-0000-4000-8000-000000000030",
+  articlePublished: "00000000-0000-4000-8000-000000000040",
+  revisionPublished: "00000000-0000-4000-8000-000000000041",
+  articleDraft: "00000000-0000-4000-8000-000000000050",
+  revisionDraft: "00000000-0000-4000-8000-000000000051",
 } as const;
 
 // Not a real credential — no user can sign in with this. Real password

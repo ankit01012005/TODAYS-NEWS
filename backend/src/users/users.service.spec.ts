@@ -51,4 +51,13 @@ describe("users.service — BR-14 error mapping", () => {
 
     await expect(usersService.deactivate("u1")).rejects.toThrow(ConflictError);
   });
+
+  it("invite() maps a duplicate email (P2002) to a clean 409, never a raw 500", async () => {
+    const duplicateEmail = Object.assign(new Error("Unique constraint failed on the fields: (`email`)"), {
+      code: "P2002",
+    });
+    mockedPrisma.user.create.mockRejectedValue(duplicateEmail);
+
+    await expect(usersService.invite("taken@example.com", "Someone", "EDITOR")).rejects.toThrow(ConflictError);
+  });
 });

@@ -107,6 +107,110 @@ export function toRevisionHistoryEntryView(
   };
 }
 
+/// The light shape for a LIST of articles — docs/09 §0: state is "the
+/// single most important piece of information in this whole area", but a
+/// list must not carry every row's full body/SEO/image content (PRF-06 —
+/// bounded lists). Deliberately narrower than RevisionView.
+export interface RevisionSummaryView {
+  id: string;
+  state: ArticleRevision["state"];
+  headline: string | null;
+  submittedAt: Date | null;
+  version: number;
+}
+
+function toRevisionSummaryView(revision: ArticleRevision): RevisionSummaryView {
+  return {
+    id: revision.id,
+    state: revision.state,
+    headline: revision.headline,
+    submittedAt: revision.submittedAt,
+    version: revision.version,
+  };
+}
+
+/// One row of My Articles (docs/12 PG-EDT-06) or All Articles
+/// (PG-ADM-04 — this same shape, just without the ownership filter
+/// `listArticles` applies for an editor).
+///
+/// `latestRevision` is the most recently created revision regardless of
+/// state — NOT the same thing as "the open one". REJECTED and ARCHIVED
+/// revisions carry no open_marker (docs/26 §1.3: "open" only covers
+/// DRAFT/IN_REVIEW/CHANGES_REQUESTED/APPROVED), so a field that only ever
+/// showed the open revision could never represent "this story was
+/// rejected" — docs/09 §6 E-06 requires exactly that to be visible. Using
+/// the newest revision unconditionally covers every state uniformly,
+/// including the case where a LIVE article's newest revision is a
+/// still-in-review correction sitting alongside its still-published one.
+export interface ArticleListItemView {
+  id: string;
+  slug: string;
+  category: { id: string; name: string; slug: string };
+  ownerId: string;
+  publicationStatus: Article["publicationStatus"];
+  updatedAt: Date;
+  latestRevision: RevisionSummaryView | null;
+  publishedRevision: RevisionSummaryView | null;
+}
+
+export function toArticleListItemView(
+  article: Article & { category: { id: string; name: string; slug: string } },
+  latestRevision: ArticleRevision | null,
+  publishedRevision: ArticleRevision | null,
+): ArticleListItemView {
+  return {
+    id: article.id,
+    slug: article.slug,
+    category: article.category,
+    ownerId: article.ownerId,
+    publicationStatus: article.publicationStatus,
+    updatedAt: article.updatedAt,
+    latestRevision: latestRevision ? toRevisionSummaryView(latestRevision) : null,
+    publishedRevision: publishedRevision ? toRevisionSummaryView(publishedRevision) : null,
+  };
+}
+
+/// docs/10 A-03 (PG-ADM-02) — the review queue's row shape: enough to
+/// triage without opening the story. `ownerDisplayName`/`category` are
+/// joined in rather than left as bare ids, and `previouslySentBack` flags
+/// a story that has been through review before ("a third-round story
+/// deserves a closer look").
+export interface ReviewQueueEntryView extends RevisionView {
+  article: {
+    id: string;
+    slug: string;
+    ownerId: string;
+    ownerDisplayName: string;
+    category: { id: string; name: string; slug: string };
+  };
+  previouslySentBack: boolean;
+}
+
+export function toReviewQueueEntryView(
+  revision: ArticleRevision & {
+    article: {
+      id: string;
+      slug: string;
+      ownerId: string;
+      owner: { displayName: string };
+      category: { id: string; name: string; slug: string };
+    };
+  },
+  previouslySentBack: boolean,
+): ReviewQueueEntryView {
+  return {
+    ...toRevisionView(revision),
+    article: {
+      id: revision.article.id,
+      slug: revision.article.slug,
+      ownerId: revision.article.ownerId,
+      ownerDisplayName: revision.article.owner.displayName,
+      category: revision.article.category,
+    },
+    previouslySentBack,
+  };
+}
+
 export function toArticleDetailView(
   article: Article,
   openRevision: ArticleRevision | null,

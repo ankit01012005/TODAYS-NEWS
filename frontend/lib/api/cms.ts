@@ -3,10 +3,13 @@ import {
   ArticleDetailView,
   ArticleListItemView,
   ArticleSourceView,
+  AuditLogView,
   CategoryView,
   MediaAssetView,
   RevisionHistoryEntryView,
+  ReviewQueueEntryView,
   SourceView,
+  StaffUserView,
 } from "./cms-types";
 
 /// Server Component reads — docs/23 §4.4's "CMS reads" row. Every one of
@@ -50,4 +53,21 @@ export async function listSourcesForStaff(): Promise<SourceView[]> {
 
 export async function listMedia(): Promise<MediaAssetView[]> {
   return json(await authFetch("/media"));
+}
+
+/// PG-ADM-02 — admin only (review:approve, same capability the backend
+/// gates this route on).
+export async function getReviewQueue(): Promise<ReviewQueueEntryView[]> {
+  return json(await authFetch("/admin/review-queue"));
+}
+
+/// PG-ADM-06 — admin only (user:manage).
+export async function listUsers(): Promise<StaffUserView[]> {
+  return json(await authFetch("/users"));
+}
+
+/// PG-ADM-05 — owner or admin; the page that calls this restricts itself
+/// to admin (docs/12's stated permission for Article history).
+export async function getArticleAudit(id: string): Promise<AuditLogView[]> {
+  return json(await authFetch(`/articles/${id}/audit`));
 }
