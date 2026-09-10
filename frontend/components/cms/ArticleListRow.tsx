@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArticleListItemView } from "@/lib/api/cms-types";
+import { formatRelative } from "@/lib/format-date";
 import { StatusBadge } from "./StatusBadge";
 
 /// docs/19 §4.2 — column order fixed so the eye learns one pattern:
@@ -23,17 +24,4 @@ export function ArticleListRow({ article }: { article: ArticleListItemView }) {
       <span className="w-40 shrink-0 text-right text-meta text-ink-muted">{formatRelative(article.updatedAt)}</span>
     </Link>
   );
-}
-
-function formatRelative(iso: string): string {
-  const date = new Date(iso);
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.round(diffMs / 60_000);
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.round(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.round(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return date.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }

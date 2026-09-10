@@ -9,7 +9,7 @@ import { validateBody } from "../common/middleware/validate-body.middleware";
 import { requireUuidParam } from "../common/middleware/uuid-param.middleware";
 import { requireCapability } from "../common/middleware/require-capability.middleware";
 import { CurrentUser } from "../common/current-user";
-import { toArticleDetailView, toRevisionView } from "./article.view";
+import { toArticleDetailView, toRevisionView, toReviewQueueEntryView } from "./article.view";
 
 /// The workflow transitions themselves (docs/23 §8.3: REVIEWS — "the most
 /// security-sensitive domain"). Deliberately separate from articlesRouter:
@@ -140,12 +140,30 @@ reviewsRouter.get("/admin/review-queue", requireCapability("review:approve"), as
   const queue = await prisma.articleRevision.findMany({
     where: { state: "IN_REVIEW" },
     orderBy: { submittedAt: "asc" },
-    include: { article: { select: { id: true, slug: true, ownerId: true, categoryId: true } } },
+    include: {
+      article: {
+        select: {
+          id: true,
+          slug: true,
+          ownerId: true,
+          owner: { select: { displayName: true } },
+          category: { select: { id: true, name: true, slug: true } },
+        },
+      },
+    },
   });
+
+  // "Sent back before" (docs/10 A-03: "a third-round story deserves a
+  // closer look") — more than one revision ever created for the article
+  // means this isn't its first time through review. Batched, not per-row.
+  const revisionCounts = await prisma.articleRevision.groupBy({
+    by: ["articleId"],
+    where: { articleId: { in: queue.map((r) => r.articleId) } },
+    _count: { _all: true },
+  });
+  const countByArticleId = new Map(revisionCounts.map((c) => [c.articleId, c._count._all]));
+
   res.status(200).json(
-    queue.map((revision) => ({
-      ...toRevisionView(revision),
-      article: revision.article,
-    })),
+    queue.map((revision) => toReviewQueueEntryView(revision, (countByArticleId.get(revision.articleId) ?? 1) > 1)),
   );
 });

@@ -6,8 +6,12 @@ import { ConflictError, NotFoundError } from "../common/http-errors";
 /// here so the raw Postgres exception never reaches a client (SEC-06).
 const LIVE_ARTICLES_MARKER = "published article references it";
 
-export function createCategory(name: string, slug: string): Promise<Category> {
-  return prisma.category.create({ data: { name, slug } });
+export async function createCategory(name: string, slug: string): Promise<Category> {
+  try {
+    return await prisma.category.create({ data: { name, slug } });
+  } catch (error) {
+    throw remapUniqueViolation(error);
+  }
 }
 
 export function listCategories(): Promise<Category[]> {
@@ -21,7 +25,7 @@ export async function updateCategory(
   try {
     return await prisma.category.update({ where: { id }, data: input });
   } catch (error) {
-    throw remapNotFound(error);
+    throw remapNotFound(remapUniqueViolation(error));
   }
 }
 
@@ -44,6 +48,13 @@ export async function deactivateCategory(id: string): Promise<Category> {
 function remapNotFound(error: unknown): unknown {
   if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2025") {
     return new NotFoundError("No such category");
+  }
+  return error;
+}
+
+function remapUniqueViolation(error: unknown): unknown {
+  if (error instanceof Error && "code" in error && (error as { code?: string }).code === "P2002") {
+    return new ConflictError("A category with this address already exists");
   }
   return error;
 }

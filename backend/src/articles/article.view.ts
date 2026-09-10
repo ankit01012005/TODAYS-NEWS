@@ -170,6 +170,47 @@ export function toArticleListItemView(
   };
 }
 
+/// docs/10 A-03 (PG-ADM-02) — the review queue's row shape: enough to
+/// triage without opening the story. `ownerDisplayName`/`category` are
+/// joined in rather than left as bare ids, and `previouslySentBack` flags
+/// a story that has been through review before ("a third-round story
+/// deserves a closer look").
+export interface ReviewQueueEntryView extends RevisionView {
+  article: {
+    id: string;
+    slug: string;
+    ownerId: string;
+    ownerDisplayName: string;
+    category: { id: string; name: string; slug: string };
+  };
+  previouslySentBack: boolean;
+}
+
+export function toReviewQueueEntryView(
+  revision: ArticleRevision & {
+    article: {
+      id: string;
+      slug: string;
+      ownerId: string;
+      owner: { displayName: string };
+      category: { id: string; name: string; slug: string };
+    };
+  },
+  previouslySentBack: boolean,
+): ReviewQueueEntryView {
+  return {
+    ...toRevisionView(revision),
+    article: {
+      id: revision.article.id,
+      slug: revision.article.slug,
+      ownerId: revision.article.ownerId,
+      ownerDisplayName: revision.article.owner.displayName,
+      category: revision.article.category,
+    },
+    previouslySentBack,
+  };
+}
+
 export function toArticleDetailView(
   article: Article,
   openRevision: ArticleRevision | null,
