@@ -41,6 +41,12 @@ export function createApp(): Express {
   // Uploaded media (local-disk placeholder, docs/23 §14.1) — served
   // publicly, same as any CDN-fronted object-storage bucket would be.
   app.use("/uploads", express.static(UPLOADS_DIR));
+  // express.static calls next() rather than responding when a file isn't
+  // found, which would otherwise fall through into sessionAuth below and
+  // turn a missing image into a confusing 401 instead of a plain 404.
+  app.use("/uploads", (_req: Request, _res: Response, next: NextFunction) => {
+    next(new NotFoundError("No such file"));
+  });
 
   // --- Everything below requires a session ---
   app.use(sessionAuth);
