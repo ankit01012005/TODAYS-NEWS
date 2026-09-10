@@ -19,7 +19,8 @@
     "test": "jest",
     "db:start": "node scripts/dev-db.cjs start",
     "db:stop": "node scripts/dev-db.cjs stop",
-    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs"
+    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs",
+    "db:seed-demo-content": "node scripts/seed-demo-content.cjs"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

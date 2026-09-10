@@ -26,9 +26,13 @@ implements — in particular `23-architecture-discovery.md` (system design),
 
 - Node.js 20+ (Node 24 recommended)
 - A running PostgreSQL server (14+). You have three reasonable options:
-  1. **Native install** — [postgresql.org/download](https://www.postgresql.org/download/), or on Windows: `winget install PostgreSQL.PostgreSQL`.
-  2. **Docker**: `docker run --name today-news-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16`
-  3. **Embedded, dev-only**: `npm install --no-save embedded-postgres` and start it from a small script — no admin rights needed, but it's a convenience option for local development only, never for anything shared or persistent.
+  1. **This repo's own dev-only Postgres (recommended for local dev)** —
+     `npm run db:start` boots a persistent local instance via
+     `embedded-postgres`, no native install or admin rights needed. Data
+     lives in `.devdb-data/` (git-ignored) and survives between runs;
+     `npm run db:stop` shuts it down. See `scripts/dev-db.cjs`.
+  2. **Native install** — [postgresql.org/download](https://www.postgresql.org/download/), or on Windows: `winget install PostgreSQL.PostgreSQL`.
+  3. **Docker**: `docker run --name today-news-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16`
 
   Whichever you choose, create a database (default name assumed below is `today_news`).
 
@@ -36,10 +40,11 @@ implements — in particular `23-architecture-discovery.md` (system design),
 
 ```bash
 npm install
-cp .env.example .env   # then fill in DATABASE_URL for real
-npx prisma migrate deploy   # apply all committed migrations
-npx prisma generate         # regenerate the Prisma client (also runs on install)
-npm run prisma:seed         # optional — minimal deterministic dev fixtures
+cp .env.example .env        # then fill in DATABASE_URL for real
+npm run db:start             # skip this if you're using your own Postgres instead
+npx prisma migrate deploy    # apply all committed migrations
+npx prisma generate          # regenerate the Prisma client (also runs on install)
+npm run db:bootstrap-admin   # creates a real, sign-in-able ADMIN account — see below
 npm run dev
 ```
 
@@ -47,12 +52,25 @@ The server starts on `http://localhost:3001` (or `PORT`, see below) and
 logs `Today_news API listening on port <PORT>` once ready. Hit
 `GET /health` to confirm it's up.
 
-> The seed script (`prisma/seed.ts`) creates users with a placeholder
-> password hash that **cannot sign in** — it exists only to exercise the
-> schema's relationships. To sign in locally you need a real account: use
-> `POST /users` (admin-only, `user:manage`) to invite someone, or insert
-> one directly with a real Argon2id hash for a first bootstrap admin —
-> there is no self-serve sign-up by design (invite-only, docs/03).
+There is no self-serve sign-up by design (invite-only, docs/03), so
+`npm run db:bootstrap-admin` exists specifically to create the *first*
+account — idempotent, safe to re-run, prints the email/password it used
+(override with `BOOTSTRAP_ADMIN_EMAIL`/`BOOTSTRAP_ADMIN_PASSWORD`/
+`BOOTSTRAP_ADMIN_NAME` env vars). Once you have that account, invite
+everyone else through the CMS itself (`POST /users`, or the frontend's
+`/staff/users` page).
+
+Two more scripts round out a realistic local setup:
+
+- `npm run prisma:seed` — `prisma/seed.ts`'s minimal, deterministic
+  fixtures (exercises the schema's relationships; its users have a
+  placeholder password hash and **cannot sign in**).
+- `npm run db:seed-demo-content` — `scripts/seed-demo-content.cjs`: ~28
+  realistic published articles across 7 sections with real photos
+  (fetched once, stored locally like any other upload) and a handful of
+  fictional staff accounts (password printed on first run) — makes the
+  public site and CMS lists actually look like a working newsroom
+  instead of one bare test article. Idempotent.
 
 ## Environment variables
 
@@ -80,7 +98,10 @@ values; `.env` itself is git-ignored.
 | `npm run prisma:migrate:dev`     | Creates + applies a new migration (interactive, dev only)   |
 | `npm run prisma:migrate:deploy`  | Applies committed migrations, no prompts (CI/production)    |
 | `npm run prisma:validate`        | Validates `schema.prisma`                                   |
-| `npm run prisma:seed`            | Runs `prisma/seed.ts` (idempotent — safe to re-run)          |
+| `npm run prisma:seed`            | Runs `prisma/seed.ts` — minimal schema-exercise fixtures (idempotent) |
+| `npm run db:start` / `db:stop`   | Starts/stops the persistent local dev Postgres (`scripts/dev-db.cjs`) |
+| `npm run db:bootstrap-admin`     | Creates the first real, sign-in-able ADMIN account (idempotent) |
+| `npm run db:seed-demo-content`   | Seeds ~28 realistic published articles with real photos (idempotent) |
 
 ## Project structure
 
@@ -101,6 +122,10 @@ prisma/
   schema.prisma            # Source of truth for the data model
   migrations/               # Committed, ordered migrations
   seed.ts                   # Dev-only fixture data
+scripts/
+  dev-db.cjs                # Persistent local Postgres (npm run db:start/db:stop)
+  bootstrap-admin.cjs        # First real admin account (npm run db:bootstrap-admin)
+  seed-demo-content.cjs      # Realistic demo articles + photos (npm run db:seed-demo-content)
 ```
 
 ## Architecture notes
@@ -121,7 +146,11 @@ prisma/
   "published" one live at the same time. See `docs/26-data-model-decisions.md`.
 - **Media storage is a local-disk placeholder** (`media/storage.ts`),
   served back under `/uploads/*`. Swappable behind the `StorageAdapter`
-  interface for real object storage later.
+  interface for real object storage later. `express.static` calls
+  `next()` rather than responding when a file is missing — `app.ts`
+  registers a dedicated 404 handler for `/uploads/*` right after it, so a
+  missing image can't fall through into `sessionAuth` and come back as a
+  confusing 401 instead of a plain 404 (found the hard way).
 
 ## Testing
 

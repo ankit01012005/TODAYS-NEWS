@@ -35,7 +35,15 @@ npm run dev
 Opens on `http://localhost:3000` by default. The public site is the
 homepage and everything under it (`/`, `/{category}`, `/{category}/{slug}`,
 `/about`, etc.); the CMS lives under `/staff` (`/staff/sign-in` is the
-entry point — there is no public sign-up, see the backend's docs).
+entry point — there is no public sign-up, see the backend's docs). The
+CMS covers both roles: an editor writing and submitting stories, and an
+admin reviewing/publishing them and running the newsroom (users,
+sources, categories).
+
+The site will look bare with a freshly migrated, unseeded database —
+run the backend's `npm run db:bootstrap-admin` for a sign-in-able
+account and `npm run db:seed-demo-content` for ~28 realistic published
+articles across 7 sections before judging how any page actually looks.
 
 ## Environment variables
 
@@ -64,18 +72,27 @@ app/
   sitemap.ts, robots.ts, feed.xml/              # SEO surfaces
   staff/                                         # The CMS (Editor + Admin), under /staff
     sign-in/, forgot-password/, accept-invitation/, access-denied/
-    page.tsx                                     # Dashboard
+    page.tsx                                     # Dashboard — branches by role (editor vs. admin)
     articles/, articles/new/, articles/[id]/edit/, articles/[id]/preview/
+    articles/[id]/history/                        # Admin-only: full audit + review-decision timeline
+    review/, review/[id]/                          # Admin-only: review queue + article review (approve/reject/request-changes)
+    users/, sources/, categories/                  # Admin-only: newsroom management, each one page with inline actions
     profile/
   api/backend/[...path]/route.ts                 # The one generic authenticated proxy — see below
 components/
   public/    # Article rendering shared between the public site AND the CMS preview page
-  cms/       # Shared CMS UI: Button, StatusBadge, forms, the article editor, etc.
+  cms/       # Shared CMS UI — Button (deliberately no `publish` variant, BR-05),
+             # StatusBadge, Tabs, Alert, ConfirmAction (the two-step confirm used by
+             # publish/reject/withdraw), the article editor, and the admin
+             # management panels (UsersManager, SourcesManager, CategoriesManager,
+             # ArticleReviewActions, AdminDashboard)
   layout/    # Public site header/footer
-lib/api/
-  public.ts, public-types.ts     # Public-read fetchers (no auth)
-  session.ts, cms.ts, cms-types.ts, auth-types.ts   # Server-side authenticated reads
-  client-fetch.ts, upload-media.ts, body-blocks.ts, media-url.ts   # Client-side write helpers
+lib/
+  format-date.ts                  # Shared relative/absolute date formatting
+  api/
+    public.ts, public-types.ts     # Public-read fetchers (no auth)
+    session.ts, cms.ts, cms-types.ts, auth-types.ts   # Server-side authenticated reads
+    client-fetch.ts, upload-media.ts, body-blocks.ts, media-url.ts   # Client-side write helpers
 ```
 
 ## Architecture: how this app talks to the backend
