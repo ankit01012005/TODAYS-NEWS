@@ -21,7 +21,7 @@ export async function PublicHeader({ activeCategorySlug }: { activeCategorySlug?
       {categories.length > 0 ? (
         <nav
           aria-label="Sections"
-          className="mx-auto flex max-w-(--width-page-max) gap-x-space-5 overflow-x-auto px-space-4 md:px-space-5"
+          className="mx-auto flex max-w-(--width-page-max) gap-x-space-5 overflow-x-auto border-b border-rule px-space-4 md:px-space-5"
         >
           {categories.map((category) => {
             const isActive = category.slug === activeCategorySlug;
@@ -29,8 +29,10 @@ export async function PublicHeader({ activeCategorySlug }: { activeCategorySlug?
               <Link
                 key={category.slug}
                 href={`/${category.slug}`}
-                className={`shrink-0 border-b-2 py-space-3 text-body-sm no-underline ${
-                  isActive ? "border-ink text-ink" : "border-transparent text-ink-secondary"
+                className={`shrink-0 border-b-2 py-space-3 text-body-sm no-underline transition-colors ${
+                  isActive
+                    ? "border-ink text-ink"
+                    : "border-transparent text-ink-secondary hover:text-ink"
                 }`}
               >
                 {category.name}
