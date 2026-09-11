@@ -142,7 +142,20 @@ export interface StaffUserView {
   displayName: string;
   role: UserRole;
   status: UserStatus;
+  /// The person has never set a password — their invitation is still
+  /// outstanding and may be re-sent (POST /users/:id/resend-invitation).
+  invitationPending: boolean;
   createdAt: string;
+}
+
+/// Response of POST /users and POST /users/:id/resend-invitation. Mirrors
+/// backend/src/users/users.service.ts InvitationResult: `invitationLink`
+/// is present only when the API's mail transport is the development
+/// console, never in production.
+export interface InvitationResult {
+  user: StaffUserView;
+  emailDelivered: boolean;
+  invitationLink?: string;
 }
 
 /// PG-ADM-05 — "who did what, when". Mirrors backend/src/audit/audit.view.ts.

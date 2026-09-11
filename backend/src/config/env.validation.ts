@@ -14,6 +14,14 @@ export interface AppEnv {
   /// process, or 0 when it is reached directly. Needed for correct client
   /// IPs in rate limiting and logs once deployed behind a load balancer.
   TRUST_PROXY: number;
+  /// Where invitation and reset emails go: "smtp" (SMTP_URL + MAIL_FROM) or
+  /// "console" (printed to stdout; development and test only).
+  MAIL_TRANSPORT: "smtp" | "console";
+  SMTP_URL: string | null;
+  MAIL_FROM: string | null;
+  /// The public origin of the Next.js app, used to build the links inside
+  /// those emails (…/staff/accept-invitation?token=…).
+  APP_BASE_URL: string;
 }
 
 const REQUIRED_KEYS = ["DATABASE_URL"] as const;
@@ -61,6 +69,34 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     throw new Error(`Invalid TRUST_PROXY: ${String(config.TRUST_PROXY)}`);
   }
 
+  const mailTransport = String(config.MAIL_TRANSPORT ?? (nodeEnv === "production" ? "smtp" : "console"));
+  if (mailTransport !== "smtp" && mailTransport !== "console") {
+    throw new Error(`Invalid MAIL_TRANSPORT: ${mailTransport} (expected "smtp" or "console")`);
+  }
+  if (nodeEnv === "production" && mailTransport !== "smtp") {
+    // A newsroom that can't email invitations can't onboard anyone; refuse
+    // to start rather than fail on the first invite.
+    throw new Error('MAIL_TRANSPORT must be "smtp" in production');
+  }
+  const smtpUrl = config.SMTP_URL ? String(config.SMTP_URL) : null;
+  const mailFrom = config.MAIL_FROM ? String(config.MAIL_FROM) : null;
+  if (mailTransport === "smtp") {
+    if (!smtpUrl) throw new Error("SMTP_URL is required when MAIL_TRANSPORT=smtp");
+    if (!/^smtps?:\/\//.test(smtpUrl)) throw new Error("SMTP_URL must start with smtp:// or smtps://");
+    if (!mailFrom) throw new Error("MAIL_FROM is required when MAIL_TRANSPORT=smtp");
+  }
+
+  const appBaseUrl = String(config.APP_BASE_URL ?? "http://localhost:3000");
+  let parsedAppBaseUrl: URL;
+  try {
+    parsedAppBaseUrl = new URL(appBaseUrl);
+  } catch {
+    throw new Error(`Invalid APP_BASE_URL: ${appBaseUrl}`);
+  }
+  if (nodeEnv === "production" && parsedAppBaseUrl.protocol !== "https:") {
+    throw new Error("APP_BASE_URL must be https in production (it goes into emailed links)");
+  }
+
   return {
     DATABASE_URL: config.DATABASE_URL as string,
     NODE_ENV: nodeEnv as AppEnv["NODE_ENV"],
@@ -69,5 +105,9 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     SESSION_TTL_HOURS: sessionTtlHours,
     CORS_ORIGINS: corsOrigins,
     TRUST_PROXY: trustProxy,
+    MAIL_TRANSPORT: mailTransport,
+    SMTP_URL: smtpUrl,
+    MAIL_FROM: mailFrom,
+    APP_BASE_URL: parsedAppBaseUrl.origin,
   };
 }

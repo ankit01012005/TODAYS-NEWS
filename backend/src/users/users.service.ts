@@ -1,8 +1,9 @@
-import { UserRole } from "@prisma/client";
+import { User, UserRole } from "@prisma/client";
 import * as argon2 from "argon2";
 import { randomBytes } from "crypto";
 import { prisma } from "../db";
-import { issueInvitationToken } from "../auth/auth.service";
+import { INVITATION_TOKEN_TTL_MS, issueInvitationToken } from "../auth/auth.service";
+import { appLink, invitationEmail, mailer } from "../mail";
 import { StaffUserView, toStaffUserView } from "./staff-user.view";
 import { ConflictError, NotFoundError } from "../common/http-errors";
 
@@ -14,11 +15,24 @@ import { ConflictError, NotFoundError } from "../common/http-errors";
 const LEAST_ONE_ACTIVE_ADMIN_MARKER = "at least one active admin must exist";
 const MOST_ONE_ACTIVE_ADMIN_MARKER = "at most one active admin may exist";
 
+export interface InvitationResult {
+  user: StaffUserView;
+  /// Whether the invitation email was handed to the transport. false means
+  /// the account exists but the message didn't go out — the admin sees
+  /// that and can re-send.
+  emailDelivered: boolean;
+  /// Only present when the mail transport is the development console
+  /// (never in production): the same link the email carries, so a
+  /// developer can copy it without reading the API's stdout.
+  invitationLink?: string;
+}
+
 export async function invite(
   email: string,
   displayName: string,
   role: UserRole,
-): Promise<{ user: StaffUserView; invitationToken: string }> {
+  invitedBy: { displayName: string },
+): Promise<InvitationResult> {
   // Unusable until the invitation is accepted — a valid-shaped hash that
   // matches no real password (nobody knows the random value).
   const placeholderPasswordHash = await argon2.hash(randomBytes(32).toString("hex"));
@@ -35,9 +49,59 @@ export async function invite(
       throw error;
     }
   });
-  const invitationToken = await issueInvitationToken(user.id);
 
-  return { user: toStaffUserView(user), invitationToken };
+  return sendInvitation(user, invitedBy);
+}
+
+/// A new token for someone who has never set a password — the original
+/// link expired, went to spam, or the address was wrong and has since been
+/// corrected. Refused once the person has a password: from then on the
+/// self-service forgot-password flow is the right tool, and re-inviting
+/// would let an admin mint a way into an active colleague's account.
+export async function resendInvitation(userId: string, invitedBy: { displayName: string }): Promise<InvitationResult> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new NotFoundError("No such user");
+  if (user.status !== "ACTIVE") throw new ConflictError("This account is deactivated; reactivate it first");
+  if (user.passwordSetAt !== null) {
+    throw new ConflictError("This person has already set a password. They can use “Forgot password” to reset it.");
+  }
+  return sendInvitation(user, invitedBy);
+}
+
+async function sendInvitation(user: User, invitedBy: { displayName: string }): Promise<InvitationResult> {
+  const invitationToken = await issueInvitationToken(user.id);
+  const link = appLink("/staff/accept-invitation", invitationToken);
+
+  let emailDelivered = true;
+  try {
+    await mailer.send(
+      invitationEmail({
+        to: user.email,
+        displayName: user.displayName,
+        invitedBy: invitedBy.displayName,
+        link,
+        expiresInDays: INVITATION_TOKEN_TTL_MS / (24 * 60 * 60 * 1000),
+      }),
+    );
+  } catch (error) {
+    emailDelivered = false;
+    // eslint-disable-next-line no-console
+    console.error(
+      JSON.stringify({
+        time: new Date().toISOString(),
+        level: "error",
+        event: "mail.invitation.failed",
+        userId: user.id,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+    );
+  }
+
+  return {
+    user: toStaffUserView(user),
+    emailDelivered,
+    ...(mailer.kind === "console" ? { invitationLink: link } : {}),
+  };
 }
 
 export async function list(): Promise<StaffUserView[]> {

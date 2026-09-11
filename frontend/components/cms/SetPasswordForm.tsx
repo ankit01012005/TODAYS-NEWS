@@ -9,8 +9,16 @@ import { Alert } from "./Alert";
 
 /// docs/12 PG-EDT-04. Serves both first-time invitation acceptance and a
 /// forgot-password reset — the backend uses one mechanism for both
-/// (docs/23 §11.3: "same mechanism"), so this form does too.
-export function SetPasswordForm({ token }: { token: string | null }) {
+/// (docs/23 §11.3: "same mechanism"), so this form does too; `mode` only
+/// picks which endpoint spends the token and how success is worded.
+export type SetPasswordMode = "invitation" | "reset";
+
+const ENDPOINTS: Record<SetPasswordMode, string> = {
+  invitation: "/auth/accept-invitation",
+  reset: "/auth/reset-password",
+};
+
+export function SetPasswordForm({ token, mode = "invitation" }: { token: string | null; mode?: SetPasswordMode }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -20,7 +28,9 @@ export function SetPasswordForm({ token }: { token: string | null }) {
   if (!token) {
     return (
       <Alert variant="danger" title="This link is invalid or has expired">
-        Request a new one from the sign-in page.
+        {mode === "reset"
+          ? "Request a new one from the sign-in page."
+          : "Ask the newsroom admin to re-send your invitation."}
       </Alert>
     );
   }
@@ -34,7 +44,7 @@ export function SetPasswordForm({ token }: { token: string | null }) {
     }
     setSubmitting(true);
     try {
-      const res = await clientFetch("/auth/accept-invitation", {
+      const res = await clientFetch(ENDPOINTS[mode], {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

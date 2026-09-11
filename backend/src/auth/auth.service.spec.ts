@@ -9,9 +9,20 @@ jest.mock("../db", () => ({
 jest.mock("../config", () => ({
   config: { SESSION_TTL_HOURS: 1, SESSION_COOKIE_NAME: "today_news_session", NODE_ENV: "test" },
 }));
+jest.mock("../mail", () => ({
+  mailer: { kind: "console", send: jest.fn().mockResolvedValue(undefined) },
+  appLink: (path: string, token: string) => `http://app.test${path}?token=${token}`,
+  passwordResetEmail: jest.fn((input: { to: string; link: string }) => ({
+    to: input.to,
+    subject: "reset",
+    text: input.link,
+    html: input.link,
+  })),
+}));
 
 // Imported AFTER the mocks above so auth.service picks up the mocked modules.
 import { prisma } from "../db";
+import { mailer } from "../mail";
 import * as auth from "./auth.service";
 import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 
@@ -162,8 +173,51 @@ describe("auth.service", () => {
 
       expect(mockedPrisma.user.update).toHaveBeenCalledWith({
         where: { id: "u1" },
-        data: { passwordHash: expect.any(String) },
+        data: { passwordHash: expect.any(String), passwordSetAt: expect.any(Date) },
       });
+    });
+  });
+
+  describe("requestPasswordReset — docs/23 §11.3", () => {
+    const mockedMailer = mailer as unknown as { send: jest.Mock };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockedPrisma.user.update.mockResolvedValue({});
+    });
+
+    it("issues a token and emails the reset link to an active account", async () => {
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "editor@test.local", status: "ACTIVE" });
+
+      await auth.requestPasswordReset("editor@test.local");
+      await new Promise((resolve) => setImmediate(resolve)); // the send is deliberately not awaited
+
+      expect(mockedPrisma.user.update).toHaveBeenCalledTimes(1);
+      expect(mockedMailer.send).toHaveBeenCalledTimes(1);
+      const message = mockedMailer.send.mock.calls[0][0] as { to: string; text: string };
+      expect(message.to).toBe("editor@test.local");
+      expect(message.text).toMatch(/^http:\/\/app\.test\/staff\/reset-password\?token=[0-9a-f]{64}$/);
+    });
+
+    it("does nothing observable for an unknown or deactivated account", async () => {
+      mockedPrisma.user.findUnique.mockResolvedValueOnce(null);
+      await auth.requestPasswordReset("nobody@test.local");
+      mockedPrisma.user.findUnique.mockResolvedValueOnce({ id: "u2", email: "gone@test.local", status: "DEACTIVATED" });
+      await auth.requestPasswordReset("gone@test.local");
+
+      expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+      expect(mockedMailer.send).not.toHaveBeenCalled();
+    });
+
+    it("swallows a delivery failure so the response can't reveal the account exists", async () => {
+      mockedPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "editor@test.local", status: "ACTIVE" });
+      mockedMailer.send.mockRejectedValueOnce(new Error("SMTP down"));
+      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+      await expect(auth.requestPasswordReset("editor@test.local")).resolves.toBeUndefined();
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 });

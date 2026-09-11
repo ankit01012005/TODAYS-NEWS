@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { StaffUserView, UserRole } from "@/lib/api/cms-types";
+import { InvitationResult, StaffUserView, UserRole } from "@/lib/api/cms-types";
 import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { Alert } from "./Alert";
 import { Button } from "./Button";
@@ -17,7 +17,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [role, setRole] = useState<UserRole>("EDITOR");
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<InvitationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
 
@@ -28,7 +28,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
   async function handleInvite(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setInviteLink(null);
+    setOutcome(null);
     setInviting(true);
     try {
       const res = await clientFetch("/users", {
@@ -40,11 +40,9 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
         setError(await readErrorMessage(res));
         return;
       }
-      const created = (await res.json()) as { user: StaffUserView; invitationToken: string };
+      const created = (await res.json()) as InvitationResult;
       setUsers((list) => [...list, created.user]);
-      // There's no email provider yet (a disclosed gap) — the admin
-      // copies this link and sends it themselves.
-      setInviteLink(`${window.location.origin}/staff/accept-invitation?token=${created.invitationToken}`);
+      setOutcome(created);
       setEmail("");
       setDisplayName("");
       setRole("EDITOR");
@@ -84,12 +82,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
         <Button type="submit" variant="primary" loading={inviting}>
           Send invitation
         </Button>
-        {inviteLink ? (
-          <Alert variant="success" title="Invitation created">
-            <p className="mb-space-1">There&rsquo;s no email set up yet — copy this link and send it yourself:</p>
-            <code className="block break-all rounded-sm bg-surface px-space-2 py-space-1 text-meta">{inviteLink}</code>
-          </Alert>
-        ) : null}
+        {outcome ? <InvitationOutcome outcome={outcome} /> : null}
       </form>
 
       <div className="rounded-md border border-rule">
@@ -98,6 +91,37 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
         ))}
       </div>
     </div>
+  );
+}
+
+/// What happened to the invitation email. The link is shown only when the
+/// API is on its development console transport (it never sends one
+/// otherwise) — a real deployment shows only "sent" or "couldn't send".
+function InvitationOutcome({ outcome }: { outcome: InvitationResult }) {
+  if (!outcome.emailDelivered) {
+    return (
+      <Alert variant="attention" title={`The account exists, but the email to ${outcome.user.email} couldn’t be sent`}>
+        Check the mail configuration, then use <em>Resend invitation</em> on their row below.
+      </Alert>
+    );
+  }
+  return (
+    <Alert variant="success" title={`Invitation sent to ${outcome.user.email}`}>
+      {outcome.invitationLink ? (
+        <>
+          <p className="mb-space-1">
+            Development mode &mdash; the API printed the email to its console instead of sending it. The link inside it:
+          </p>
+          <code className="block break-all rounded-sm bg-surface px-space-2 py-space-1 text-meta">
+            {outcome.invitationLink}
+          </code>
+        </>
+      ) : (
+        <p>
+          It works for 7 days. If it doesn&rsquo;t arrive, use <em>Resend invitation</em> on their row below.
+        </p>
+      )}
+    </Alert>
   );
 }
 
@@ -113,7 +137,26 @@ function UserRow({
   const [role, setRole] = useState<UserRole>(user.role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resent, setResent] = useState<InvitationResult | null>(null);
   const pendingRoleChange = role !== user.role;
+
+  async function resendInvitation() {
+    setError(null);
+    setResent(null);
+    setBusy(true);
+    try {
+      const res = await clientFetch(`/users/${user.id}/resend-invitation`, { method: "POST" });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      const result = (await res.json()) as InvitationResult;
+      setResent(result);
+      onChanged(result.user);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function commitRoleChange() {
     setError(null);
@@ -160,13 +203,37 @@ function UserRow({
         </p>
         <p className="text-meta text-ink-muted">{user.email}</p>
         {error ? <p className="mt-space-1 text-body-sm text-danger">{error}</p> : null}
+        {resent ? (
+          <div className={`mt-space-1 text-body-sm ${resent.emailDelivered ? "text-success" : "text-danger"}`}>
+            {resent.emailDelivered
+              ? "Invitation re-sent."
+              : "The email couldn’t be sent — check the mail configuration."}
+            {resent.invitationLink ? (
+              <code className="mt-space-1 block break-all rounded-sm bg-surface px-space-2 py-space-1 text-meta text-ink">
+                {resent.invitationLink}
+              </code>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       <span
-        className={`shrink-0 rounded-sm px-space-2 py-0.5 text-meta ${user.status === "ACTIVE" ? "bg-success-wash text-ink-secondary" : "bg-surface-sunken text-ink-faint"}`}
+        className={`shrink-0 rounded-pill px-space-3 py-0.5 text-meta ${
+          user.status !== "ACTIVE"
+            ? "bg-surface-sunken text-ink-muted"
+            : user.invitationPending
+              ? "bg-attention-wash text-ink-secondary"
+              : "bg-success-wash text-ink-secondary"
+        }`}
       >
-        {user.status === "ACTIVE" ? "Active" : "Deactivated"}
+        {user.status !== "ACTIVE" ? "Deactivated" : user.invitationPending ? "Invitation pending" : "Active"}
       </span>
+
+      {user.status === "ACTIVE" && user.invitationPending && !isSelf ? (
+        <Button type="button" variant="secondary" size="sm" loading={busy} onClick={resendInvitation}>
+          Resend invitation
+        </Button>
+      ) : null}
 
       <select
         className="h-9 shrink-0 rounded-sm border border-rule-strong px-space-2 text-body-sm text-ink"

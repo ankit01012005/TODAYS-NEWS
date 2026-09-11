@@ -5,8 +5,9 @@ import { config } from "../config";
 import { AuthenticatedUser } from "../common/authenticated-user";
 import { generateOpaqueToken, hashToken } from "../common/token.util";
 import { BadRequestError, UnauthorizedError } from "../common/http-errors";
+import { appLink, mailer, passwordResetEmail } from "../mail";
 
-const INVITATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const INVITATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 /// P2-11: one generic failure for every cause — unknown email, wrong
@@ -59,9 +60,9 @@ export async function signOut(rawToken: string): Promise<void> {
 }
 
 /// Same mechanism backs admin-invites-a-user and forgot-password
-/// (docs/23 §11.3). Returns the raw token so the caller can hand it back in
-/// the response — there is no email provider configured yet (a deliberate,
-/// disclosed gap for this phase, not a silent one).
+/// (docs/23 §11.3). Returns the raw token; the caller puts it into the
+/// email (users.service.ts / requestPasswordReset below) and never into
+/// an API response unless the mail transport is the development console.
 export async function issueSetPasswordToken(userId: string, ttlMs: number): Promise<string> {
   const { raw, hash } = generateOpaqueToken();
   await prisma.user.update({
@@ -81,7 +82,30 @@ export function issueInvitationToken(userId: string): Promise<string> {
 export async function requestPasswordReset(email: string): Promise<void> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (user && user.status === "ACTIVE") {
-    await issueSetPasswordToken(user.id, PASSWORD_RESET_TOKEN_TTL_MS);
+    const rawToken = await issueSetPasswordToken(user.id, PASSWORD_RESET_TOKEN_TTL_MS);
+    // Not awaited: the response must take the same time whether or not
+    // the account exists (P2-11), and an SMTP round-trip only happens for
+    // real accounts. A delivery failure is logged, never surfaced.
+    void mailer
+      .send(
+        passwordResetEmail({
+          to: user.email,
+          link: appLink("/staff/reset-password", rawToken),
+          expiresInMinutes: PASSWORD_RESET_TOKEN_TTL_MS / 60_000,
+        }),
+      )
+      .catch((error: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error(
+          JSON.stringify({
+            time: new Date().toISOString(),
+            level: "error",
+            event: "mail.reset.failed",
+            userId: user.id,
+            message: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      });
   }
   // Deliberately no return value either way — the router sends the same
   // generic response whether or not the account exists (P2-11-style).
@@ -105,6 +129,7 @@ export async function setPasswordWithToken(rawToken: string, newPassword: string
       passwordHash,
       passwordResetTokenHash: null,
       passwordResetExpiresAt: null,
+      passwordSetAt: new Date(),
     },
   });
 }
@@ -117,7 +142,7 @@ export async function updateProfile(
   userId: string,
   input: { displayName?: string; currentPassword?: string; newPassword?: string },
 ): Promise<AuthenticatedUser> {
-  const data: { displayName?: string; passwordHash?: string } = {};
+  const data: { displayName?: string; passwordHash?: string; passwordSetAt?: Date } = {};
 
   if (input.displayName !== undefined) {
     data.displayName = input.displayName;
@@ -135,6 +160,7 @@ export async function updateProfile(
       throw new UnauthorizedError("Current password is incorrect");
     }
     data.passwordHash = await argon2.hash(input.newPassword);
+    data.passwordSetAt = new Date();
   }
 
   const updated = await prisma.user.update({ where: { id: userId }, data });
