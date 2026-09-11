@@ -12,7 +12,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${newsreader.variable} ${inter.variable} ${ibmPlexMono.variable}`}>
-      <body id="top">{children}</body>
+      <body id="top">
+        <a
+          href="#content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-space-3 focus:left-space-3 focus:z-(--z-overlay) focus:rounded-sm focus:bg-ink focus:px-space-4 focus:py-space-2 focus:text-body-sm focus:text-paper"
+        >
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

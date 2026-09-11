@@ -16,7 +16,7 @@ export function SourcesBlock({ sources }: { sources: PublicSourceRef[] }) {
       <ol className="mt-space-3 divide-y divide-rule">
         {sources.map((source, index) => (
           <li key={source.name} className="flex gap-x-space-4 py-space-3 text-body-sm text-ink-secondary">
-            <span className="w-6 shrink-0 text-meta tabular-nums text-ink-faint">{index + 1}</span>
+            <span className="w-6 shrink-0 text-meta tabular-nums text-ink-muted">{index + 1}</span>
             <span>
               <span className="text-ink">{source.name}</span>
               {source.note ? <span className="text-ink-muted"> — {source.note}</span> : null}

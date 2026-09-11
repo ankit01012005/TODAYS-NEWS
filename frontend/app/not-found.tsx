@@ -23,7 +23,7 @@ export default async function NotFound() {
   return (
     <>
       <PublicHeader showLatest={false} />
-      <main className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
+      <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
         <div className="mx-auto max-w-(--width-measure) text-center">
           <p className="text-numeral text-brand" aria-hidden="true">
             404

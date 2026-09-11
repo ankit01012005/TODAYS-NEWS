@@ -48,7 +48,7 @@
   /* Editorial curation accent — brief §2 / §10. Reserved for Editor's
      picks and pull-quote details so it stays meaningful. */
   --color-gold: #b3924f;
-  --color-gold-deep: #8f7239;
+  --color-gold-deep: #7a6030;
   --color-gold-wash: #f6f0e2;
 
   --color-success: #3a6f4a;
@@ -393,7 +393,8 @@
   }
   .nav-link:hover::after,
   .nav-link:focus-visible::after,
-  .nav-link[aria-current="page"]::after {
+  .nav-link[aria-current="page"]::after,
+  .nav-link[aria-selected="true"]::after {
     transform: scaleX(1);
   }
 

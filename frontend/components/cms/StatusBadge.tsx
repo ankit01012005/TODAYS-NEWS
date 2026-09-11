@@ -47,7 +47,7 @@ export function StatusBadge({ state, size = "sm" }: { state: RevisionState; size
 
   return (
     <span
-      className={`inline-flex items-center gap-x-1.5 rounded-sm px-space-2 ${heightClass} ${meta.washClass} ${meta.textClass}`}
+      className={`inline-flex items-center gap-x-1.5 whitespace-nowrap rounded-pill px-space-3 font-medium ${heightClass} ${meta.washClass} ${meta.textClass}`}
     >
       {!isRejected ? <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dotClass}`} /> : null}
       {meta.label}

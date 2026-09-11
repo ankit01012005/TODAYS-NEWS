@@ -61,7 +61,7 @@ export default async function ArticlePage({ params }: { params: Promise<PagePara
       <PublicHeader activeCategorySlug={article.category.slug} showLatest={false} />
       <div className="reading-progress" aria-hidden="true" />
       <ViewTransition default="page-fade">
-        <main>
+        <main id="content">
           <article>
             <ArticleHeader article={article} readingMinutes={readingMinutes} />
             <div className="mx-auto max-w-(--width-measure) px-space-4 pt-space-7 md:px-space-5 md:pt-space-8">

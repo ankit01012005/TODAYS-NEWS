@@ -20,7 +20,7 @@ export async function StaticPage({
     <>
       <PublicHeader showLatest={false} />
       <ViewTransition default="page-fade">
-        <main className="mx-auto max-w-(--width-measure) px-space-4 pt-space-7 md:px-space-5 md:pt-space-8">
+        <main id="content" className="mx-auto max-w-(--width-measure) px-space-4 pt-space-7 md:px-space-5 md:pt-space-8">
           <header className="border-b-2 border-ink pb-space-4">
             <p className="text-label text-brand">{kicker}</p>
             <h1 className="mt-space-2 text-display-1 text-ink">{title}</h1>

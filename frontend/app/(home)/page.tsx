@@ -24,7 +24,7 @@ export default async function HomePage() {
     return (
       <>
         <PublicHeader />
-        <main className="mx-auto max-w-(--width-page-max) px-space-4 py-space-6 md:px-space-5">
+        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 py-space-6 md:px-space-5">
           <EmptyState
             heading="No stories published yet"
             body="Today News is just getting started. Check back soon for the latest coverage."
@@ -55,7 +55,7 @@ export default async function HomePage() {
     <>
       <PublicHeader />
       <ViewTransition default="page-fade">
-        <main>
+        <main id="content">
           <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
             <HeroStory lead={lead} secondary={heroSecondary} />
           </div>

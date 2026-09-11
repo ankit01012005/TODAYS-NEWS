@@ -21,25 +21,35 @@ export function CmsHeader({ user }: { user: AuthenticatedUser }) {
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-rule px-space-5 py-space-3">
-      <div className="flex items-center gap-x-space-3">
-        <Link href="/staff" className="text-heading-4 text-ink no-underline">
-          Today News
-        </Link>
-        <span className="text-label text-ink-muted">{user.role === "ADMIN" ? "Newsroom" : "Editor"}</span>
-      </div>
-      <div className="flex items-center gap-x-space-4">
-        <Link href="/staff/profile" className="text-body-sm text-ink-secondary no-underline hover:underline">
-          {user.displayName}
-        </Link>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          disabled={signingOut}
-          className="text-body-sm text-accent underline disabled:text-ink-faint"
-        >
-          {signingOut ? "Signing out…" : "Sign out"}
-        </button>
+    <header className="sticky top-0 z-(--z-nav) border-b border-rule bg-paper/95 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-(--width-page-max-cms) items-center justify-between px-space-4 md:px-space-6">
+        <div className="flex items-center gap-x-space-3">
+          <Link href="/staff" className="text-wordmark text-[22px] text-ink no-underline">
+            Today News
+            <span className="text-brand" aria-hidden="true">
+              .
+            </span>
+          </Link>
+          <span className="rounded-pill border border-rule bg-surface px-space-2 py-px text-label text-ink-muted">
+            {user.role === "ADMIN" ? "Newsroom" : "Editor"}
+          </span>
+        </div>
+        <div className="flex items-center gap-x-space-4">
+          <Link
+            href="/staff/profile"
+            className="link-underline hidden text-body-sm text-ink-secondary hover:text-ink sm:inline"
+          >
+            {user.displayName}
+          </Link>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="inline-flex h-8 items-center rounded-sm border border-rule-strong bg-paper px-space-3 text-body-sm text-ink transition-colors duration-(--duration-fast) hover:bg-surface disabled:text-ink-faint"
+          >
+            {signingOut ? "Signing out…" : "Sign out"}
+          </button>
+        </div>
       </div>
     </header>
   );

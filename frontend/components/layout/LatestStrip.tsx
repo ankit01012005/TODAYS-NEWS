@@ -26,7 +26,7 @@ export async function LatestStrip() {
             <li key={article.slug} className="flex shrink-0 items-baseline gap-x-space-2 whitespace-nowrap">
               <time
                 dateTime={article.publishedAt}
-                className="text-meta tabular-nums text-ink-faint"
+                className="text-meta tabular-nums text-ink-muted"
               >
                 {formatPublicTime(article.publishedAt)}
               </time>

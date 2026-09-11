@@ -32,7 +32,7 @@ export default function GlobalError({
         </div>
         <div className="border-b-2 border-brand" />
       </header>
-      <main className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
+      <main id="content" className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
         <p className="text-label text-brand">Temporarily unavailable</p>
         <h1 className="mt-space-3 text-display-2 text-ink">Something went wrong on our side</h1>
         <p className="mx-auto mt-space-4 max-w-[46ch] text-standfirst text-ink-secondary">

@@ -329,6 +329,12 @@ export function ArticleEditor({
         </Alert>
       ) : null}
 
+      {isAdmin && !isInReview && article.openRevision ? (
+        <Alert variant="info" title="Read-only">
+          Editors write stories; you review them. Submitted stories appear in the review queue.
+        </Alert>
+      ) : null}
+
       {canStartCorrection ? (
         <Alert variant="info" title="This story is published">
           <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
@@ -398,7 +404,7 @@ export function ArticleEditor({
         <div>
           <span className="text-label text-ink-muted">Section</span>
           <select
-            className="mt-1 h-10 w-full rounded-sm border border-rule-strong px-space-3 text-body text-ink"
+            className="mt-1 h-10 w-full rounded-sm border border-rule-strong bg-paper px-space-3 text-body text-ink disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-muted"
             disabled={!isEditable}
             value={form.categoryId}
             onChange={(e) => update("categoryId", e.target.value)}

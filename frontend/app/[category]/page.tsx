@@ -36,7 +36,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
     <>
       <PublicHeader activeCategorySlug={result.category.slug} />
       <ViewTransition default="page-fade">
-        <main className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
+        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
           <header className="border-b-2 border-ink pb-space-4">
             <p className="text-label text-brand">Section</p>
             <h1 className="mt-space-1 text-display-1 text-ink">{result.category.name}</h1>
