@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { KeyboardEvent, useState } from "react";
 import { ArticleSourceView, SourceView } from "@/lib/api/cms-types";
 import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { Alert } from "./Alert";
@@ -10,7 +10,11 @@ import { TextField } from "./TextField";
 /// Attach/detach act immediately against their own endpoints
 /// (sources.router.ts's articleSourcesRouter — separate from
 /// articlesRouter's Save), so this component owns its own server calls
-/// rather than routing them through the editor's explicit Save.
+/// rather than routing them through the editor's explicit Save. It lives
+/// INSIDE the editor's <form>, so it must not render a <form> of its own
+/// (HTML forbids nesting; React refuses to hydrate it) — the attach action
+/// is a plain button, with Enter in the note field wired to the same
+/// handler so it still behaves like a small form.
 export function SourcePicker({
   articleId,
   attached,
@@ -32,9 +36,8 @@ export function SourcePicker({
   const attachedIds = new Set(items.map((i) => i.sourceId));
   const choices = available.filter((s) => !attachedIds.has(s.id));
 
-  async function handleAttach(e: FormEvent) {
-    e.preventDefault();
-    if (!selectedSourceId) return;
+  async function handleAttach() {
+    if (!selectedSourceId || busy) return;
     setError(null);
     setBusy(true);
     try {
@@ -99,7 +102,19 @@ export function SourcePicker({
         <p className="text-body-sm text-ink-muted">No sources attached yet.</p>
       )}
       {!disabled && choices.length > 0 ? (
-        <form onSubmit={handleAttach} className="space-y-space-2 rounded-md border border-rule p-space-3">
+        <div
+          role="group"
+          aria-label="Attach a source"
+          className="space-y-space-2 rounded-md border border-rule p-space-3"
+          onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
+            // Enter inside this group attaches the source rather than
+            // submitting the surrounding article form (Save).
+            if (e.key === "Enter" && (e.target as HTMLElement).tagName !== "TEXTAREA") {
+              e.preventDefault();
+              void handleAttach();
+            }
+          }}
+        >
           <select
             className="h-10 w-full rounded-sm border border-rule-strong px-space-3 text-body text-ink"
             value={selectedSourceId}
@@ -118,10 +133,10 @@ export function SourcePicker({
             <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
             Show to readers
           </label>
-          <Button type="submit" variant="secondary" size="sm" loading={busy} disabled={!selectedSourceId}>
+          <Button type="button" variant="secondary" size="sm" loading={busy} disabled={!selectedSourceId} onClick={handleAttach}>
             Attach source
           </Button>
-        </form>
+        </div>
       ) : null}
     </div>
   );
