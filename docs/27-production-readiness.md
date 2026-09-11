@@ -161,3 +161,156 @@ it**, with the PR number.
 4. C1–C2 only when a second instance is actually planned; C3–C6 in the
    first weeks after launch.
 5. D1, D2 and E1 are conversations, not code — have them now.
+
+---
+
+# Part 2 — Production architecture and rollout plan
+
+**Accepted 2026-09-12** as the plan that closes the checklist above. Each
+step names the checklist items it satisfies.
+
+## Target topology
+
+Multiple users do not require microservices. One properly sized API
+instance with caching and a managed database serves the first release;
+add API instances only when monitoring shows a real need.
+
+```
+Readers → CDN → Next.js
+                   ↓
+Staff  → Next.js → Express API → Managed PostgreSQL
+                   ↓
+            Object storage / CDN
+```
+
+Not needed for launch: Kubernetes, microservices, Kafka, Elasticsearch, or
+a queue system. Sticky sessions are unnecessary — sessions already live in
+PostgreSQL, so the API is effectively stateless.
+
+## Step 1 — Correctness and security first *(A1–A6)*
+
+Before anything deploys:
+
+- One database transaction around article content, category, byline and
+  the version check (A2); draft corrections must not change the currently
+  published category or byline (A1).
+- Version/state protection on source attach and detach (A3).
+- Atomic reset-token consumption; revoke other sessions after any
+  password change (A4).
+- Post-login `from` restricted to internal `/staff/...` paths (A5).
+- 404 (and every prerendered page) works with the API temporarily
+  unavailable (A6).
+- Tests for every case above.
+
+## Step 2 — Replace local image storage *(B1, C5)*
+
+An S3-compatible storage adapter behind the existing `media/storage.ts`
+interface, providing:
+
+- Durable storage independent of application servers, with CDN delivery.
+- Generated filenames (already the case), upload size **and dimension**
+  limits.
+- Decode → re-encode on upload (strips EXIF, rejects malformed files) and
+  responsive derivatives.
+- Cleanup of the stored object when the database write fails after upload.
+
+Mandatory before running more than one API instance.
+
+## Step 3 — Managed PostgreSQL, properly *(B2, C2)*
+
+- Automated daily backups and point-in-time recovery, with a **tested**
+  restore procedure.
+- Connection pooling (Prisma pool size per instance, or PgBouncer).
+- Database SSL; restricted credentials (no superuser at runtime).
+- Separate development, staging and production databases.
+- `prisma migrate deploy` automated in the release step.
+
+## Step 4 — Production caching *(B3)*
+
+Explicit cache tags with invalidation. Publishing, correcting or
+withdrawing a story immediately invalidates: the article page, the
+homepage, its category page, the sitemap and the RSS feed. A CDN sits in
+front of public pages and images. **Never** cache `/staff/*`, preview
+pages, or `/api/backend/*`.
+
+## Step 5 — Deployment pipeline *(B2)*
+
+Every change automatically runs, in order:
+
+1. Backend tests
+2. Backend build
+3. Frontend lint
+4. Frontend typecheck
+5. Frontend production build
+6. Database integration tests
+7. Deploy to staging
+8. Database migrations
+9. Production deployment
+10. Health (`/health`, `/ready`) and smoke checks
+
+Keep a one-action rollback available.
+
+## Step 6 — Real-system tests *(B4)*
+
+The 79 backend tests mostly mock the database. Add:
+
+- PostgreSQL integration tests (triggers, markers, BR-14).
+- A browser test: sign-in → write → submit → review → publish → live.
+- Concurrent publication tests; stale-editing and source-change tests.
+- Invitation and password-reset tests against a test mailbox.
+- Upload and image-delivery tests.
+- A backup-restoration test.
+
+## Step 7 — Load test realistic traffic
+
+Test public and CMS traffic separately; define acceptable response times
+and error rates **before** running. Scenarios:
+
+- Hundreds of simultaneous readers on one viral article.
+- Homepage and category traffic.
+- 20–50 staff sessions reading CMS pages.
+- Several editors saving simultaneously.
+- Two review actions against the same version.
+- Concurrent image uploads.
+- A temporary database or API failure.
+
+## Step 8 — Multi-instance coordination *(C1, C2)*
+
+Only when running more than one API instance:
+
+- Shared rate-limit store; `TRUST_PROXY` set for the real load balancer.
+- Object storage for every file (Step 2).
+- Cache invalidation that reaches every frontend instance.
+- PostgreSQL connections limited and monitored.
+- Sessions stay in PostgreSQL (already true).
+- Important writes idempotent where a retry is possible.
+
+## Step 9 — Monitoring and incident handling *(C4)*
+
+Error tracking; external uptime monitoring; API latency and error-rate
+metrics; database connection and query monitoring; disk/object-storage
+monitoring; alerts for failed email delivery, repeated authorization
+failures, and failed deployments or migrations; a short incident and
+rollback runbook. The health endpoints and structured request logs are the
+foundation.
+
+## Step 10 — Remove operational single points of failure *(D1, E1)*
+
+Allow multiple review-only admins while requiring at least one active
+admin; keep individual accounts and audit records; never a shared admin
+login. Configure a real SMTP provider with domain authentication (SPF /
+DKIM / DMARC), genuine contact addresses, privacy and corrections
+policies, and production branding.
+
+## Implementation sequence
+
+1. Article transaction and concurrency fixes
+2. Redirect and password-reset security
+3. Frontend build resilience
+4. Object storage and image processing
+5. PostgreSQL integration tests
+6. CI/CD and staging
+7. Cache invalidation and CDN
+8. Monitoring and backups
+9. Load testing
+10. Production launch
