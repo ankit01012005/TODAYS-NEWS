@@ -95,6 +95,7 @@ export interface SourceView {
   id: string;
   name: string;
   description: string | null;
+  url: string | null;
   verified: boolean;
   createdByUserId: string;
   verifiedByUserId: string | null;
@@ -156,6 +157,18 @@ export interface InvitationResult {
   user: StaffUserView;
   emailDelivered: boolean;
   invitationLink?: string;
+}
+
+/// Mirrors backend/src/social/social.view.ts SocialPickView.
+export interface SocialPickView {
+  id: string;
+  platform: "INSTAGRAM" | "X" | "OTHER";
+  accountHandle: string;
+  headline: string;
+  url: string;
+  createdAt: string;
+  createdByUserId: string;
+  updatedAt: string;
 }
 
 /// PG-ADM-05 — "who did what, when". Mirrors backend/src/audit/audit.view.ts.

@@ -35,6 +35,22 @@ export interface PublicArticleSummary {
 export interface PublicSourceRef {
   name: string;
   note: string | null;
+  /// Where the source lives online, when the newsroom recorded one —
+  /// shown as an outbound link (OQ-24, resolved 2026-09-12).
+  url: string | null;
+}
+
+/// Mirrors backend/src/social/social.view.ts PublicSocialPickView — the
+/// hand-curated "Top on social" rail on the front page.
+export type SocialPlatform = "INSTAGRAM" | "X" | "OTHER";
+
+export interface PublicSocialPick {
+  id: string;
+  platform: SocialPlatform;
+  accountHandle: string;
+  headline: string;
+  url: string;
+  createdAt: string;
 }
 
 export interface PublicArticleView {

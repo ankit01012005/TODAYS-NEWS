@@ -18,6 +18,7 @@ import { sourcesRouter, articleSourcesRouter } from "./sources/sources.router";
 import { mediaRouter } from "./media/media.router";
 import { auditRouter } from "./audit/audit.router";
 import { publicRouter } from "./public/public.router";
+import { socialPublicRouter, socialRouter } from "./social/social.router";
 import { UPLOADS_DIR } from "./media/storage";
 
 /// Builds the Express app without starting a listener — main.ts calls
@@ -59,6 +60,7 @@ export function createApp(): Express {
   app.use(healthRouter);
   app.use(authPublicRouter);
   app.use(publicRouter);
+  app.use(socialPublicRouter);
   // Uploaded media (local-disk placeholder, docs/23 §14.1) — served
   // publicly, same as any CDN-fronted object-storage bucket would be.
   app.use("/uploads", express.static(UPLOADS_DIR, { maxAge: "7d", immutable: true, index: false }));
@@ -77,6 +79,7 @@ export function createApp(): Express {
   app.use("/sources", sourcesRouter);
   app.use(articleSourcesRouter);
   app.use("/media", mediaRouter);
+  app.use("/social-picks", socialRouter);
   app.use(articlesRouter);
   app.use(reviewsRouter);
   app.use(auditRouter);

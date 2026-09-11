@@ -77,6 +77,16 @@ enum ReviewDecisionType {
   @@map("review_decision_type")
 }
 
+/// Where a curated social pick comes from. Extend here (one migration)
+/// rather than free text, so the front page can show a platform glyph.
+enum SocialPlatform {
+  INSTAGRAM
+  X
+  OTHER
+
+  @@map("social_platform")
+}
+
 // ---------------------------------------------------------------------------
 // Users, sessions, audit
 // ---------------------------------------------------------------------------
@@ -120,6 +130,7 @@ model User {
   auditLogs          AuditLog[]        @relation("AuditActor")
   createdSources     Source[]          @relation("SourceCreator")
   verifiedSources    Source[]          @relation("SourceVerifier")
+  socialPicks        SocialPick[]      @relation("SocialPickCurator")
 
   @@index([role, status])
   @@map("users")
@@ -186,6 +197,10 @@ model Source {
   id               String    @id @default(uuid()) @db.Uuid
   name             String
   description      String?
+  /// Where the source lives online (a social account, a site, a document).
+  /// http(s) only — validated in sources.service.ts; shown to readers as an
+  /// outbound link (OQ-24, resolved 2026-09-12).
+  url              String?
   verified         Boolean   @default(false)
   createdByUserId  String    @map("created_by_user_id") @db.Uuid
   createdBy        User      @relation("SourceCreator", fields: [createdByUserId], references: [id])
@@ -393,6 +408,30 @@ model ReviewDecision {
 
 /// Storage key and file metadata only (docs/26 §4.1). Caption-like fields
 /// (alt, credit) deliberately live on ArticleRevision instead — see there.
+/// "Top on social" — hand-picked posts from Instagram / X that staff find
+/// each day and add by hand (no platform automation; decided 2026-09-12).
+/// Admin-only to write, because a pick appears on the front page without
+/// passing through article review — publishing is the admin's job
+/// (BR-02). Soft-deleted so the audit trail keeps pointing at something.
+model SocialPick {
+  id              String         @id @default(uuid()) @db.Uuid
+  platform        SocialPlatform
+  /// The account, as written on the platform ("@reuters").
+  accountHandle   String         @map("account_handle")
+  /// What the front page shows — staff-written, not the raw post text.
+  headline        String
+  /// The post itself. http(s) only — validated in social.service.ts.
+  url             String
+  createdByUserId String         @map("created_by_user_id") @db.Uuid
+  createdBy       User           @relation("SocialPickCurator", fields: [createdByUserId], references: [id])
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  deletedAt       DateTime?      @map("deleted_at")
+
+  @@index([deletedAt, createdAt])
+  @@map("social_picks")
+}
+
 model MediaAsset {
   id               String    @id @default(uuid()) @db.Uuid
   storageKey       String    @unique @map("storage_key")

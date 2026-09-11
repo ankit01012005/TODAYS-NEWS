@@ -103,7 +103,7 @@ export async function getPublishedArticle(categorySlug: string, slug: string): P
     article,
     revision,
     featuredImageUrl(revision.featuredImage?.storageKey ?? null),
-    sources.map((s) => ({ name: s.source.name, note: s.note })),
+    sources.map((s) => ({ name: s.source.name, note: s.note, url: s.source.url })),
   );
 }
 

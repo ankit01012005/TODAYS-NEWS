@@ -1,24 +1,51 @@
 import { ArticleRevision, Source } from "@prisma/client";
 import { prisma } from "../db";
 import { AuthenticatedUser } from "../common/authenticated-user";
-import { ConflictError, ForbiddenError, NotFoundError } from "../common/http-errors";
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../common/http-errors";
 import { assertOwnerOrAdmin } from "../articles/authorization";
+import { isSafeHref } from "../articles/body.util";
 
 const EDITABLE_STATES: ArticleRevision["state"][] = ["DRAFT", "CHANGES_REQUESTED"];
 
 /// Editor creates a source; only admin may verify, edit or deactivate one
 /// (docs/03 §2.3) — admin cannot author, so it does not create sources.
-export function createSource(userId: string, name: string, description?: string): Promise<Source> {
-  return prisma.source.create({ data: { name, description, createdByUserId: userId } });
+export function createSource(
+  userId: string,
+  name: string,
+  description?: string,
+  url?: string,
+): Promise<Source> {
+  return prisma.source.create({
+    data: { name, description, url: normaliseSourceUrl(url), createdByUserId: userId },
+  });
+}
+
+/// An absolute http(s) address or nothing. The same allow-list body links
+/// use (no javascript:/data:, no whitespace); a relative path makes no
+/// sense for a source, so those are refused too.
+function normaliseSourceUrl(url: string | undefined): string | null | undefined {
+  if (url === undefined) return undefined;
+  const trimmed = url.trim();
+  if (trimmed === "") return null;
+  if (!/^https?:\/\//i.test(trimmed) || !isSafeHref(trimmed)) {
+    throw new BadRequestError("url must be a full http(s) address");
+  }
+  return trimmed;
 }
 
 export function listSources(): Promise<Source[]> {
   return prisma.source.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } });
 }
 
-export async function updateSource(id: string, input: { name?: string; description?: string }): Promise<Source> {
+export async function updateSource(
+  id: string,
+  input: { name?: string; description?: string; url?: string },
+): Promise<Source> {
   try {
-    return await prisma.source.update({ where: { id }, data: input });
+    return await prisma.source.update({
+      where: { id },
+      data: { name: input.name, description: input.description, url: normaliseSourceUrl(input.url) },
+    });
   } catch (error) {
     throw remapNotFound(error);
   }

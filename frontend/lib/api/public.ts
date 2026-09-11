@@ -4,6 +4,7 @@ import {
   PublicArticleView,
   PublicCategoryListResult,
   PublicCategoryRef,
+  PublicSocialPick,
 } from "./public-types";
 
 /// Server components call these directly at render/revalidation time
@@ -47,6 +48,17 @@ export async function getPublishedArticle(
 export async function getCategories(): Promise<PublicCategoryRef[]> {
   const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
   return result ?? [];
+}
+
+/// Brief §6/§7-adjacent — the front page's "Top on social" rail. Curated
+/// by hand in the CMS; empty is a normal state (the rail just doesn't
+/// render), and a failure here must never take the front page down.
+export async function getSocialPicks(): Promise<PublicSocialPick[]> {
+  try {
+    return (await publicFetch<PublicSocialPick[]>("/public/social-picks")) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export async function getCategoryWithArticles(

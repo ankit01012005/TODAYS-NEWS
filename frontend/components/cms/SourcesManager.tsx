@@ -16,6 +16,7 @@ export function SourcesManager({ sources: initialSources }: { sources: SourceVie
   const [sources, setSources] = useState(initialSources);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -27,7 +28,7 @@ export function SourcesManager({ sources: initialSources }: { sources: SourceVie
       const res = await clientFetch("/sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description: description || undefined }),
+        body: JSON.stringify({ name, description: description || undefined, url: url || undefined }),
       });
       if (!res.ok) {
         setError(await readErrorMessage(res));
@@ -58,6 +59,16 @@ export function SourcesManager({ sources: initialSources }: { sources: SourceVie
         <h2 className="text-label text-ink-muted">Add a source</h2>
         <TextField id="source-name" label="Name" required value={name} onChange={(e) => setName(e.target.value)} />
         <TextField id="source-description" label="Description" optional value={description} onChange={(e) => setDescription(e.target.value)} />
+        <TextField
+          id="source-url"
+          label="Link"
+          optional
+          type="url"
+          placeholder="https://x.com/account or a website"
+          hint="Shown to readers as an outbound link. http(s) only."
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
         <Button type="submit" variant="primary" loading={creating}>
           Add source
         </Button>
@@ -86,6 +97,7 @@ function SourceRow({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(source.name);
   const [description, setDescription] = useState(source.description ?? "");
+  const [url, setUrl] = useState(source.url ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -96,7 +108,7 @@ function SourceRow({
       const res = await clientFetch(`/sources/${source.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, url }),
       });
       if (!res.ok) {
         setError(await readErrorMessage(res));
@@ -151,6 +163,15 @@ function SourceRow({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        <TextField
+          id={`edit-url-${source.id}`}
+          label="Link"
+          optional
+          type="url"
+          hint="http(s) only; leave empty to remove"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
         <div className="flex gap-x-space-2">
           <Button type="button" variant="primary" size="sm" loading={busy} onClick={handleSave}>
             Save
@@ -171,6 +192,16 @@ function SourceRow({
           {source.verified ? <span className="ml-space-2 text-body-sm text-success">Verified</span> : null}
         </p>
         {source.description ? <p className="text-meta text-ink-muted">{source.description}</p> : null}
+        {source.url ? (
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            className="link-underline mt-space-1 inline-block break-all text-meta text-ink-secondary"
+          >
+            {source.url}
+          </a>
+        ) : null}
         {error ? <p className="mt-space-1 text-body-sm text-danger">{error}</p> : null}
       </div>
       <Button type="button" variant="tertiary" size="sm" disabled={busy} onClick={() => setEditing(true)}>
