@@ -9,16 +9,21 @@ export function SourcesBlock({ sources }: { sources: PublicSourceRef[] }) {
   if (sources.length === 0) return null;
 
   return (
-    <section className="mt-space-8 border-t border-rule pt-space-6">
-      <h2 className="text-label text-ink-muted">Sources</h2>
-      <ul className="mt-space-3 space-y-space-2">
-        {sources.map((source) => (
-          <li key={source.name} className="text-body-sm text-ink-secondary">
-            {source.name}
-            {source.note ? <span className="text-ink-muted"> — {source.note}</span> : null}
+    <section aria-labelledby="sources-heading" className="mt-space-8 border-t-2 border-ink pt-space-4">
+      <h2 id="sources-heading" className="text-label text-ink-muted">
+        Sources
+      </h2>
+      <ol className="mt-space-3 divide-y divide-rule">
+        {sources.map((source, index) => (
+          <li key={source.name} className="flex gap-x-space-4 py-space-3 text-body-sm text-ink-secondary">
+            <span className="w-6 shrink-0 text-meta tabular-nums text-ink-faint">{index + 1}</span>
+            <span>
+              <span className="text-ink">{source.name}</span>
+              {source.note ? <span className="text-ink-muted"> — {source.note}</span> : null}
+            </span>
           </li>
         ))}
-      </ul>
+      </ol>
     </section>
   );
 }

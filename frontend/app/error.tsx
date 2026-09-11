@@ -20,24 +20,40 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <main className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
-      <p className="text-heading-2 text-ink">Today News</p>
-      <h1 className="mt-space-5 text-heading-3 text-ink">Something went wrong on our side</h1>
-      <p className="mt-space-3 text-body text-ink-secondary">
-        We&rsquo;re sorry — please try again in a moment.
-      </p>
-      <div className="mt-space-5 flex justify-center gap-x-space-5">
-        <button
-          type="button"
-          onClick={() => reset()}
-          className="text-body text-accent underline"
-        >
-          Try again
-        </button>
-        <Link href="/" className="text-body text-accent underline">
-          Back to the homepage
-        </Link>
-      </div>
-    </main>
+    <>
+      <header className="surface-band">
+        <div className="mx-auto flex max-w-(--width-page-max) flex-col items-center px-space-4 py-space-6">
+          <Link href="/" className="text-wordmark text-[42px] text-ink no-underline md:text-[56px]">
+            Today News
+            <span className="text-brand" aria-hidden="true">
+              .
+            </span>
+          </Link>
+        </div>
+        <div className="border-b-2 border-brand" />
+      </header>
+      <main className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
+        <p className="text-label text-brand">Temporarily unavailable</p>
+        <h1 className="mt-space-3 text-display-2 text-ink">Something went wrong on our side</h1>
+        <p className="mx-auto mt-space-4 max-w-[46ch] text-standfirst text-ink-secondary">
+          We&rsquo;re sorry — please try again in a moment.
+        </p>
+        <div className="mt-space-6 flex flex-col items-center justify-center gap-y-space-3 sm:flex-row sm:gap-x-space-4">
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="inline-flex h-11 items-center rounded-pill bg-ink px-space-5 text-meta text-paper transition-[background-color,transform] duration-(--duration-fast) hover:bg-ink-secondary active:translate-y-px"
+          >
+            Try again
+          </button>
+          <Link
+            href="/"
+            className="inline-flex h-11 items-center rounded-pill border border-ink px-space-5 text-meta text-ink no-underline transition-[background-color,color] duration-(--duration-fast) hover:bg-ink hover:text-paper"
+          >
+            Back to the front page
+          </Link>
+        </div>
+      </main>
+    </>
   );
 }
