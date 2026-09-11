@@ -20,14 +20,14 @@ export interface PublicArticleView {
     caption: string | null;
   } | null;
   publishedAt: string;
-  sources: { name: string; note: string | null }[];
+  sources: { name: string; note: string | null; url: string | null }[];
 }
 
 export function toPublicArticleView(
   article: Article & { category: Category; owner: User },
   revision: ArticleRevision,
   featuredImageUrl: string | null,
-  publicSources: { name: string; note: string | null }[],
+  publicSources: { name: string; note: string | null; url: string | null }[],
 ): PublicArticleView {
   return {
     slug: article.slug,

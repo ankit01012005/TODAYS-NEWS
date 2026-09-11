@@ -34,7 +34,9 @@ export default async function ArticlePreviewPage({ params }: { params: Promise<{
   const revision = article.openRevision ?? article.publishedRevision;
   const category = categories.find((c) => c.id === article.categoryId) ?? { name: "Uncategorized", slug: "" };
   const byline = article.bylineOverride ?? user.displayName;
-  const sources = attachedSources.filter((s) => s.isPublic).map((s) => ({ name: s.source.name, note: s.note }));
+  const sources = attachedSources
+    .filter((s) => s.isPublic)
+    .map((s) => ({ name: s.source.name, note: s.note, url: s.source.url }));
   const featuredAsset = revision?.featuredImageId ? (media.find((m) => m.id === revision.featuredImageId) ?? null) : null;
 
   return (

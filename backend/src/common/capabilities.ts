@@ -36,6 +36,7 @@ export type Capability =
   | "category:manage"
   | "media:upload"
   | "user:manage"
+  | "social:manage"
   | "audit:view";
 
 const EDITOR_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
@@ -64,6 +65,7 @@ const ADMIN_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
   "source:manage",
   "category:manage",
   "user:manage",
+  "social:manage",
   "audit:view",
 ]);
 

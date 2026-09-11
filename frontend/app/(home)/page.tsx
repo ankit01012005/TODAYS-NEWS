@@ -5,10 +5,11 @@ import { HeroStory } from "@/components/public/HeroStory";
 import { StoryGrid } from "@/components/public/StoryGrid";
 import { JustIn } from "@/components/public/JustIn";
 import { TopStories } from "@/components/public/TopStories";
+import { SocialPicks } from "@/components/public/SocialPicks";
 import { EditorsPicks } from "@/components/public/EditorsPicks";
 import { CategorySection } from "@/components/public/CategorySection";
 import { EmptyState } from "@/components/public/EmptyState";
-import { getCategories, getCategoryWithArticles, getPublishedArticles } from "@/lib/api/public";
+import { getCategories, getCategoryWithArticles, getPublishedArticles, getSocialPicks } from "@/lib/api/public";
 import { PublicArticleSummary } from "@/lib/api/public-types";
 
 /// PG-PUB-01. One list of published stories, newest first, allocated to
@@ -17,7 +18,11 @@ import { PublicArticleSummary } from "@/lib/api/public-types";
 /// Editor's picks (one per desk not shown above), then every desk in
 /// turn. A story may legitimately reappear inside its own desk's section.
 export default async function HomePage() {
-  const [{ articles }, categories] = await Promise.all([getPublishedArticles(), getCategories()]);
+  const [{ articles }, categories, socialPicks] = await Promise.all([
+    getPublishedArticles(),
+    getCategories(),
+    getSocialPicks(),
+  ]);
   const lead = articles[0];
 
   if (!lead) {
@@ -75,6 +80,12 @@ export default async function HomePage() {
           {top.length >= 2 ? (
             <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
               <TopStories stories={top} />
+            </div>
+          ) : null}
+
+          {socialPicks.length > 0 ? (
+            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
+              <SocialPicks picks={socialPicks} />
             </div>
           ) : null}
 

@@ -10,4 +10,9 @@ export class UpdateSourceDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  url?: string;
 }

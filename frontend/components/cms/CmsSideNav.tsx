@@ -41,6 +41,7 @@ export function CmsSideNav({ user }: { user: AuthenticatedUser }) {
               { href: "/staff/users", label: "Users" },
               { href: "/staff/sources", label: "Sources" },
               { href: "/staff/categories", label: "Categories" },
+              { href: "/staff/social", label: "Social picks" },
             ],
           },
         ]

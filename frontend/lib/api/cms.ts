@@ -8,6 +8,7 @@ import {
   MediaAssetView,
   RevisionHistoryEntryView,
   ReviewQueueEntryView,
+  SocialPickView,
   SourceView,
   StaffUserView,
 } from "./cms-types";
@@ -23,6 +24,10 @@ async function json<T>(res: Response): Promise<T> {
     throw new Error(`Request failed: ${res.status} ${body}`);
   }
   return (await res.json()) as T;
+}
+
+export async function listSocialPicks(): Promise<SocialPickView[]> {
+  return json(await authFetch("/social-picks"));
 }
 
 export async function listMyArticles(): Promise<ArticleListItemView[]> {

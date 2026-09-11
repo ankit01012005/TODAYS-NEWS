@@ -19,7 +19,12 @@ sourcesRouter.post(
   requireCapability("source:create"),
   validateBody(CreateSourceDto),
   async (req: Request<ParamsDictionary, unknown, CreateSourceDto>, res: Response) => {
-    const source = await sourcesService.createSource(CurrentUser(req).id, req.body.name, req.body.description);
+    const source = await sourcesService.createSource(
+      CurrentUser(req).id,
+      req.body.name,
+      req.body.description,
+      req.body.url,
+    );
     res.status(201).json(source);
   },
 );
