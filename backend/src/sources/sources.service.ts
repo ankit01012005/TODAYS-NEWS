@@ -68,6 +68,8 @@ export async function attachSource(
   const source = await prisma.source.findUnique({ where: { id: input.sourceId } });
   if (!source || source.deletedAt) throw new NotFoundError("No such source");
 
+  // Same shape as listAttachedSources — the picker renders the source's
+  // name straight from the response, so the relation must be included.
   return prisma.articleSource.create({
     data: {
       articleRevisionId: revision.id,
@@ -76,6 +78,7 @@ export async function attachSource(
       isPublic: input.isPublic ?? true,
       note: input.note,
     },
+    include: { source: true },
   });
 }
 

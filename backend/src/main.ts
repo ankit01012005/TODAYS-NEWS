@@ -3,6 +3,7 @@ import "./common/authenticated-user"; // Express.Request augmentation
 import { createApp } from "./app";
 import { config } from "./config";
 import { disconnectDb } from "./db";
+import { verifyMailer } from "./mail";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -10,7 +11,8 @@ const app = createApp();
 
 const server = app.listen(config.PORT, "0.0.0.0", () => {
   // eslint-disable-next-line no-console
-  console.log(`Today_news API listening on port ${config.PORT}`);
+  console.log(`Today_news API listening on port ${config.PORT} (mail: ${config.MAIL_TRANSPORT})`);
+  void verifyMailer();
 });
 
 // Give a slow client a bounded time to finish; without these a stuck

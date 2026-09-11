@@ -190,15 +190,17 @@ integration-test suite yet (see Known gaps).
 These were called out deliberately during development rather than
 fixed or hidden — worth reading before a real production deploy:
 
-- **No email provider.** Invitation and password-reset tokens are
-  generated and returned by the API, but nothing sends them anywhere yet.
+- **Email is SMTP-only.** Invitations and password resets go out through
+  `src/mail` (`MAIL_TRANSPORT=smtp` + `SMTP_URL` + `MAIL_FROM`; development
+  uses `console`, which prints the message and its link to stdout). There
+  is no provider-specific API integration and no delivery tracking — a
+  failed invitation is reported to the admin, who can re-send it.
 - **Media storage is local-disk**, not real object storage — fine for a
   single-instance dev setup, not for production or multi-instance
   deployments.
-- **CORS is fully permissive** (`origin: true` in `app.ts`) — needs to be
-  locked to the real frontend origin before this is exposed publicly.
-- **Body-content validation is structural only** (`articles/body.util.ts`)
-  — it checks block *shape*, not the full inline-content/link-allowlist
-  rules `docs/26-data-model-decisions.md` §3.4 specifies.
+- **CORS is off unless `CORS_ORIGINS` lists origins** — the browser never
+  calls this API directly (the Next.js app proxies server-to-server), so
+  the default is correct; only set it if something else must call the API
+  from a browser.
 - **No integration/e2e test suite is committed** — verification against a
   real database has so far been done manually per phase.
