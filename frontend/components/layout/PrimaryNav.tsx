@@ -11,12 +11,12 @@ import { SITE_NAME } from "@/lib/site";
 export function PrimaryNav({
   categories,
   activeCategorySlug,
+  activeHome = false,
 }: {
   categories: PublicCategoryRef[];
   activeCategorySlug?: string;
+  activeHome?: boolean;
 }) {
-  if (categories.length === 0) return null;
-
   return (
     <nav
       aria-label="Sections"
@@ -32,7 +32,18 @@ export function PrimaryNav({
           {SITE_NAME}
           <span className="text-brand">.</span>
         </Link>
-        <ul className="no-scrollbar fade-edges flex flex-1 gap-x-space-5 overflow-x-auto md:justify-center md:gap-x-space-7 md:[mask-image:none]">
+        <ul className="no-scrollbar fade-edges flex min-h-11 flex-1 items-center gap-x-space-5 overflow-x-auto md:justify-center md:gap-x-space-7 md:[mask-image:none]">
+          <li className="shrink-0">
+            <Link
+              href="/"
+              aria-current={activeHome ? "page" : undefined}
+              className={`nav-link block py-space-3 text-body-sm font-medium no-underline transition-colors duration-(--duration-fast) ${
+                activeHome ? "text-brand" : "text-ink-secondary hover:text-ink"
+              }`}
+            >
+              Front page
+            </Link>
+          </li>
           {categories.map((category) => {
             const isActive = category.slug === activeCategorySlug;
             return (
@@ -41,7 +52,7 @@ export function PrimaryNav({
                   href={`/${category.slug}`}
                   aria-current={isActive ? "page" : undefined}
                   className={`nav-link block py-space-3 text-body-sm font-medium no-underline transition-colors duration-(--duration-fast) ${
-                    isActive ? "text-ink" : "text-ink-secondary hover:text-ink"
+                    isActive ? "text-brand" : "text-ink-secondary hover:text-ink"
                   }`}
                 >
                   {category.name}

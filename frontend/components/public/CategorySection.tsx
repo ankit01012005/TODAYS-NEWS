@@ -4,27 +4,29 @@ import { StoryCard } from "./StoryCard";
 import { SectionHeading } from "./SectionHeading";
 
 /// Brief §8 — each desk is its own editorial destination, and the desks
-/// alternate between two compositions so the page doesn't repeat itself:
-/// "lead" (a feature, two typography stories, a headline list) and "row"
-/// (four standard cards). Same components, different arrangement.
+/// alternate between lead, image-row and typography compositions so the
+/// front page changes rhythm without changing the underlying content.
 export function CategorySection({
   category,
   articles,
   composition,
+  tone = "paper",
 }: {
   category: PublicCategoryRef;
   articles: PublicArticleSummary[];
-  composition: "lead" | "row";
+  composition: "lead" | "row" | "text";
+  tone?: "paper" | "sage";
 }) {
   if (articles.length === 0) return null;
   const href = `/${category.slug}`;
+  const shell = tone === "sage" ? "desk-section-sage" : "";
 
   if (composition === "row") {
     return (
-      <section aria-labelledby={`section-${category.slug}`}>
+      <section aria-labelledby={`section-${category.slug}`} className={shell}>
         <SectionHeading id={`section-${category.slug}`} title={category.name} href={href} />
-        <div className="reveal-stagger mt-space-5 grid grid-cols-1 gap-x-space-6 gap-y-space-6 sm:grid-cols-2 md:grid-cols-4">
-          {articles.slice(0, 4).map((article) => (
+        <div className="editorial-auto-grid reveal-stagger mt-space-5">
+          {articles.slice(0, 3).map((article) => (
             <StoryCard
               key={article.slug}
               article={article}
@@ -38,30 +40,36 @@ export function CategorySection({
     );
   }
 
+  if (composition === "text") {
+    return (
+      <section aria-labelledby={`section-${category.slug}`} className={shell}>
+        <SectionHeading id={`section-${category.slug}`} title={category.name} href={href} />
+        <div className="typography-desk reveal-stagger mt-space-5">
+          {articles.slice(0, 4).map((article) => (
+            <StoryCard key={article.slug} article={article} variant="text" className="reveal" />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   const [lead, ...rest] = articles;
   if (!lead) return null;
   const texts = rest.slice(0, 2);
   const list = rest.slice(2, 6);
 
   return (
-    <section aria-labelledby={`section-${category.slug}`}>
+    <section aria-labelledby={`section-${category.slug}`} className={shell}>
       <SectionHeading id={`section-${category.slug}`} title={category.name} href={href} />
       <div className="mt-space-5 grid grid-cols-1 gap-y-space-6 md:grid-cols-12 md:gap-x-space-6">
-        <StoryCard article={lead} variant="feature" className="reveal md:col-span-6" />
-        {texts.length > 0 ? (
-          <div className="divide-y divide-rule md:col-span-3">
+        <StoryCard article={lead} variant="feature" className={`reveal ${rest.length > 0 ? "md:col-span-7" : "md:col-span-8"}`} />
+        {rest.length > 0 ? (
+          <div className="divide-y divide-rule md:col-span-5 md:border-l md:border-rule md:pl-space-6">
             {texts.map((article) => (
-              <StoryCard
-                key={article.slug}
-                article={article}
-                variant="text"
-                className="reveal py-space-4 first:pt-0"
-              />
+              <StoryCard key={article.slug} article={article} variant="compact" className="reveal py-space-4 first:pt-0" />
             ))}
-          </div>
-        ) : null}
-        {list.length > 0 ? (
-          <div className="md:col-span-3 md:border-l md:border-rule md:pl-space-5">
+            {list.length > 0 ? (
+              <div className="pt-space-4">
             <p className="text-label text-ink-muted">Also in {category.name}</p>
             <ul className="mt-space-3 divide-y divide-rule">
               {list.map((article) => (
@@ -77,6 +85,8 @@ export function CategorySection({
                 </li>
               ))}
             </ul>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

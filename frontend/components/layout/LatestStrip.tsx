@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getPublishedArticles } from "@/lib/api/public";
 import { formatPublicTime } from "@/lib/format-date";
 
-/// Brief §3/§7 — the "Just in" strip beneath the nav: the newest published
+/// The latest strip beneath the nav: the newest published
 /// stories with their publication time. Real data only — the newest items
 /// of the same list the homepage renders, nothing marked "breaking" by
 /// hand. One horizontal rail, scrollable at xs.
@@ -16,10 +16,9 @@ export async function LatestStrip() {
       <div className="mx-auto flex max-w-(--width-page-max) items-center gap-x-space-4 px-space-4 md:px-space-5">
         <Link
           href="/#latest"
-          className="flex shrink-0 items-center gap-x-space-2 py-space-2 text-label text-brand no-underline"
+          className="flex shrink-0 items-center gap-x-space-2 border-r border-rule py-space-2 pr-space-4 text-label text-brand no-underline"
         >
-          <span className="live-dot" aria-hidden="true" />
-          Just in
+          Latest
         </Link>
         <ul className="no-scrollbar fade-edges flex flex-1 gap-x-space-6 overflow-x-auto py-space-2">
           {latest.map((article) => (

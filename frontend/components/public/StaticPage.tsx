@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { ViewTransition } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicSite } from "@/components/layout/PublicSite";
 
 /// Shared shell for the four static pages (docs/12 PG-PUB-05..08). Static
 /// text, fixed at build time — an explicitly acceptable V1 answer, not a
@@ -17,7 +18,7 @@ export async function StaticPage({
   children: ReactNode;
 }) {
   return (
-    <>
+    <PublicSite>
       <PublicHeader showLatest={false} />
       <ViewTransition default="page-fade">
         <main id="content" className="mx-auto max-w-(--width-measure) px-space-4 pt-space-7 md:px-space-5 md:pt-space-8">
@@ -31,6 +32,6 @@ export async function StaticPage({
         </main>
       </ViewTransition>
       <PublicFooter />
-    </>
+    </PublicSite>
   );
 }

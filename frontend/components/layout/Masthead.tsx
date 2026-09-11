@@ -3,27 +3,26 @@ import { formatEditionDate } from "@/lib/format-date";
 import { SITE_NAME } from "@/lib/site";
 
 /// Brief §3 — a publication masthead, not a logo bar: a thin publication
-/// strip (edition date, live link), the wordmark, and the masthead rule
-/// beneath in the identity red (docs/19 §2.4). The wordmark's full stop is
-/// the one place the identity colour touches type.
+/// strip (edition date and useful links), the wordmark, and a slim
+/// signature rule beneath it. The compact stack protects the first screen
+/// for reporting.
 ///
 /// docs/19 §2.4 / SEO-09 — no public-facing element ever links into the
 /// back-office. There is deliberately no "staff sign-in" link here.
 export function Masthead() {
   return (
-    <div className="surface-band">
+    <div className="public-masthead">
       <div className="mx-auto max-w-(--width-page-max) px-space-4 md:px-space-5">
-        <div className="flex items-center justify-between border-b border-rule py-space-2 text-meta text-ink-muted">
-          <time dateTime={new Date().toISOString().slice(0, 10)} className="truncate">
+        <div className="flex min-h-9 items-center justify-between border-b border-rule py-space-2 font-mono text-[11px] tracking-[0.03em] text-ink-muted">
+          <time dateTime={new Date().toISOString().slice(0, 10)} className="truncate uppercase">
             {formatEditionDate()}
           </time>
           <div className="flex items-center gap-x-space-5">
             <Link
               href="/#latest"
-              className="inline-flex items-center gap-x-space-2 text-ink-secondary no-underline hover:text-ink"
+              className="link-underline text-ink-secondary no-underline hover:text-ink"
             >
-              <span className="live-dot" aria-hidden="true" />
-              Latest
+              Latest coverage
             </Link>
             <Link href="/feed.xml" className="hidden text-ink-muted no-underline hover:text-ink sm:inline">
               RSS
@@ -31,20 +30,22 @@ export function Masthead() {
           </div>
         </div>
 
-        <div className="flex flex-col items-center py-space-5 md:py-space-6">
+        <div className="flex items-center justify-between py-space-4 md:py-space-5">
+          <span className="hidden w-32 text-label text-ink-muted md:block">Public edition</span>
           <Link
             href="/"
-            className="text-wordmark text-[42px] text-ink no-underline sm:text-[56px] md:text-[72px]"
+            className="public-wordmark no-underline"
             aria-label={`${SITE_NAME} — home`}
           >
-            {SITE_NAME}
-            <span className="text-brand" aria-hidden="true">
-              .
-            </span>
+            <span>{SITE_NAME}</span>
+            <span className="wordmark-signature" aria-hidden="true" />
           </Link>
+          <span className="hidden max-w-32 text-right font-mono text-[11px] uppercase tracking-[0.08em] text-ink-muted md:block">
+            Atlas edition
+          </span>
         </div>
       </div>
-      <div className="border-b-2 border-brand" />
+      <div className="editorial-rule" aria-hidden="true" />
     </div>
   );
 }

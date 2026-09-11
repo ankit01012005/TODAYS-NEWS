@@ -56,7 +56,7 @@ export function HeaderSkeleton() {
 
 export function HomeSkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div className="public-site" aria-busy="true" aria-live="polite">
       <p className="sr-only">Loading the latest stories</p>
       <HeaderSkeleton />
       <main className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
@@ -86,7 +86,7 @@ export function HomeSkeleton() {
 
 export function CategorySkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div className="public-site" aria-busy="true" aria-live="polite">
       <p className="sr-only">Loading this section</p>
       <HeaderSkeleton />
       <main className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
@@ -116,7 +116,7 @@ export function CategorySkeleton() {
 
 export function ArticleSkeleton() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div className="public-site" aria-busy="true" aria-live="polite">
       <p className="sr-only">Loading the story</p>
       <HeaderSkeleton />
       <main>

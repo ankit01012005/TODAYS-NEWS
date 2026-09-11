@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicSite } from "@/components/layout/PublicSite";
 import { StoryCard } from "@/components/public/StoryCard";
 import { EmptyState } from "@/components/public/EmptyState";
 import { getCategoryWithArticles } from "@/lib/api/public";
@@ -33,7 +34,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
   const isFirstPage = !cursor;
 
   return (
-    <>
+    <PublicSite>
       <PublicHeader activeCategorySlug={result.category.slug} />
       <ViewTransition default="page-fade">
         <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
@@ -105,7 +106,7 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
         </main>
       </ViewTransition>
       <PublicFooter />
-    </>
+    </PublicSite>
   );
 }
 

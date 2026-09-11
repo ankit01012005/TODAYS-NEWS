@@ -125,7 +125,7 @@ export function ArticleBody({ body }: { body: unknown }) {
   const blocks = body.map(asBlock).filter((b): b is Block => b !== null);
 
   return (
-    <div className="drop-cap text-body-lg text-ink">
+    <div className="public-article-body drop-cap text-body-lg text-ink">
       {blocks.map((block, i) => (
         <BlockView key={i} block={block} />
       ))}

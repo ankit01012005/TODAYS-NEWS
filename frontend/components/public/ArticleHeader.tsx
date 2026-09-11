@@ -8,9 +8,8 @@ import { ShareButton } from "./ShareButton";
 /// Brief §12 — the order docs/08 §4 fixes (headline → picture → story →
 /// everything else), composed like a magazine opener: a centred kicker,
 /// display headline and dek in the wide measure, the byline row with
-/// reading time and share, then the cinematic hero image wider than the
-/// text with a slow scroll parallax (CSS scroll timeline; nothing on
-/// mobile beyond the image itself).
+/// reading time and share, then the evidence-bearing hero image without
+/// scroll effects that could distract from the story.
 export function ArticleHeader({
   article,
   readingMinutes,
@@ -19,24 +18,24 @@ export function ArticleHeader({
   readingMinutes: number;
 }) {
   const path = `/${article.category.slug}/${article.slug}`;
+  const byline = article.byline.trim();
 
   return (
     <header>
-      <div className="mx-auto max-w-(--width-measure-wide) px-space-4 pt-space-7 text-center md:px-space-5 md:pt-space-8">
-        <Link
-          href={`/${article.category.slug}`}
-          className="link-underline inline-block text-label text-brand"
-        >
-          {article.category.name}
-        </Link>
-        <h1 className="mt-space-4 text-display-1 text-ink md:text-[60px] md:leading-[1.04]">{article.headline}</h1>
-        <p className="mx-auto mt-space-5 max-w-[58ch] text-standfirst text-ink-secondary">{article.summary}</p>
+      <div className="mx-auto max-w-(--width-measure-wide) px-space-4 pt-space-7 md:px-space-5 md:pt-space-8">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-space-2 text-label text-ink-muted">
+          <Link href="/" className="link-underline hover:text-ink">Front page</Link>
+          <span aria-hidden="true">/</span>
+          <Link href={`/${article.category.slug}`} className="link-underline text-brand">
+            {article.category.name}
+          </Link>
+        </nav>
+        <h1 className="article-title mt-space-4 text-ink">{article.headline}</h1>
+        <p className="mt-space-5 max-w-[62ch] text-standfirst text-ink-secondary">{article.summary}</p>
 
-        <div className="mt-space-6 flex flex-col items-center justify-center gap-y-space-3 border-y border-rule py-space-3 text-meta text-ink-muted sm:flex-row sm:gap-x-space-4">
-          <span className="text-ink">By {article.byline}</span>
-          <span className="hidden sm:inline" aria-hidden="true">
-            ·
-          </span>
+        <div className="mt-space-6 flex flex-col items-start gap-y-space-3 border-y border-rule py-space-3 text-meta text-ink-muted sm:flex-row sm:items-center sm:gap-x-space-4">
+          {byline ? <span className="text-ink">By {byline}</span> : null}
+          {byline ? <span className="hidden sm:inline" aria-hidden="true">·</span> : null}
           <time dateTime={article.publishedAt}>{formatPublicDateTime(article.publishedAt)}</time>
           <span className="hidden sm:inline" aria-hidden="true">
             ·
@@ -51,14 +50,14 @@ export function ArticleHeader({
       {article.featuredImage ? (
         <figure className="mx-auto mt-space-6 max-w-[1120px] px-space-4 md:mt-space-7 md:px-space-5">
           <ViewTransition name={`story-${article.slug}`} share="morph" default="none">
-            <div className="relative aspect-16/9 overflow-hidden bg-surface-sunken shadow-depth-2">
+            <div className="relative aspect-16/9 overflow-hidden bg-surface-sunken">
               <Image
                 src={article.featuredImage.url}
                 alt={article.featuredImage.alt}
                 fill
                 preload
                 sizes="(min-width: 1200px) 1120px, 100vw"
-                className="parallax-hero object-cover"
+                className="object-cover"
               />
             </div>
           </ViewTransition>

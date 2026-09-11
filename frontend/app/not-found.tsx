@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicSite } from "@/components/layout/PublicSite";
 import { getPublishedArticles } from "@/lib/api/public";
 import { StoryCard } from "@/components/public/StoryCard";
 import { SectionHeading } from "@/components/public/SectionHeading";
@@ -21,7 +22,7 @@ export default async function NotFound() {
   const latest = articles.slice(0, 3);
 
   return (
-    <>
+    <PublicSite>
       <PublicHeader showLatest={false} />
       <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
         <div className="mx-auto max-w-(--width-measure) text-center">
@@ -42,7 +43,7 @@ export default async function NotFound() {
 
         {latest.length > 0 ? (
           <section aria-labelledby="nf-latest" className="mt-space-9">
-            <SectionHeading id="nf-latest" title="Meanwhile, the latest" tone="brand" live />
+            <SectionHeading id="nf-latest" title="Meanwhile, the latest" tone="brand" />
             <div className="mt-space-5 grid grid-cols-1 gap-x-space-6 gap-y-space-6 sm:grid-cols-2 md:grid-cols-3">
               {latest.map((article) => (
                 <StoryCard key={article.slug} article={article} variant="standard" showSummary={false} />
@@ -52,6 +53,6 @@ export default async function NotFound() {
         ) : null}
       </main>
       <PublicFooter />
-    </>
+    </PublicSite>
   );
 }
