@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { ParamsDictionary } from "express-serve-static-core";
-import { rateLimit } from "express-rate-limit";
+import { ipKeyGenerator, rateLimit } from "express-rate-limit";
 import * as auth from "./auth.service";
 import { SignInDto } from "./dto/sign-in.dto";
 import { SetPasswordDto } from "./dto/set-password.dto";
@@ -12,10 +12,45 @@ import { config } from "../config";
 
 const GENERIC_RESET_MESSAGE = "If an account exists for that email, a reset link has been sent.";
 
-/// SEC-09: rate limited well below the API's general default — sign-in and
-/// password-reset are the single most attractive brute-force targets in the
-/// product.
-const authRateLimit = rateLimit({ windowMs: 60_000, limit: 5, standardHeaders: true });
+/// SEC-09: sign-in and password-reset are the single most attractive
+/// brute-force targets in the product. Every request reaches this API from
+/// the Next.js server (docs/23 §11.4), so all staff share one client IP —
+/// keying by IP alone would lock the whole newsroom out together after a
+/// handful of attempts. Sign-in and forgot-password are therefore keyed by
+/// IP + the account being targeted (what a brute force is actually
+/// against); the token-spending routes, which carry no account, by IP.
+const WINDOW_MS = 15 * 60_000;
+
+function accountKey(req: Request): string {
+  const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  return `${ipKeyGenerator(req.ip ?? "")}|${email}`;
+}
+
+const signInRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: accountKey,
+  message: { statusCode: 429, message: "Too many sign-in attempts. Please wait a few minutes and try again." },
+});
+
+const resetRequestRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: accountKey,
+  message: { statusCode: 429, message: "Too many reset requests. Please wait a few minutes and try again." },
+});
+
+const tokenRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { statusCode: 429, message: "Too many attempts. Please wait a few minutes and try again." },
+});
 
 function setSessionCookie(res: Response, rawToken: string): void {
   res.cookie(config.SESSION_COOKIE_NAME, rawToken, {
@@ -32,7 +67,7 @@ export const authPublicRouter = Router();
 
 authPublicRouter.post(
   "/auth/sign-in",
-  authRateLimit,
+  signInRateLimit,
   validateBody(SignInDto),
   async (req: Request<unknown, unknown, SignInDto>, res: Response) => {
     const { rawToken, user } = await auth.signIn(req.body.email, req.body.password);
@@ -43,7 +78,7 @@ authPublicRouter.post(
 
 authPublicRouter.post(
   "/auth/accept-invitation",
-  authRateLimit,
+  tokenRateLimit,
   validateBody(SetPasswordDto),
   async (req: Request<unknown, unknown, SetPasswordDto>, res: Response) => {
     await auth.setPasswordWithToken(req.body.token, req.body.password);
@@ -53,7 +88,7 @@ authPublicRouter.post(
 
 authPublicRouter.post(
   "/auth/forgot-password",
-  authRateLimit,
+  resetRequestRateLimit,
   validateBody(ForgotPasswordDto),
   async (req: Request<unknown, unknown, ForgotPasswordDto>, res: Response) => {
     // P2-11-style: identical response whether or not the account exists.
@@ -64,7 +99,7 @@ authPublicRouter.post(
 
 authPublicRouter.post(
   "/auth/reset-password",
-  authRateLimit,
+  tokenRateLimit,
   validateBody(SetPasswordDto),
   async (req: Request<unknown, unknown, SetPasswordDto>, res: Response) => {
     await auth.setPasswordWithToken(req.body.token, req.body.password);
