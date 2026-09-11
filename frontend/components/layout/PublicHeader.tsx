@@ -15,8 +15,9 @@ import { LatestStrip } from "./LatestStrip";
 /// back-office.
 export async function PublicHeader({
   activeCategorySlug,
+  activeHome = false,
   showLatest = true,
-}: { activeCategorySlug?: string; showLatest?: boolean } = {}) {
+}: { activeCategorySlug?: string; activeHome?: boolean; showLatest?: boolean } = {}) {
   const categories = await getCategories();
 
   return (
@@ -24,7 +25,7 @@ export async function PublicHeader({
       <header>
         <Masthead />
       </header>
-      <PrimaryNav categories={categories} activeCategorySlug={activeCategorySlug} />
+      <PrimaryNav categories={categories} activeCategorySlug={activeCategorySlug} activeHome={activeHome} />
       {showLatest ? <LatestStrip /> : null}
     </>
   );

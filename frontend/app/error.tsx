@@ -20,17 +20,15 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <>
+    <div className="public-site">
       <header className="surface-band">
         <div className="mx-auto flex max-w-(--width-page-max) flex-col items-center px-space-4 py-space-6">
-          <Link href="/" className="text-wordmark text-[42px] text-ink no-underline md:text-[56px]">
-            Today News
-            <span className="text-brand" aria-hidden="true">
-              .
-            </span>
+          <Link href="/" className="public-wordmark no-underline">
+            <span>Today News</span>
+            <span className="wordmark-signature" aria-hidden="true" />
           </Link>
         </div>
-        <div className="border-b-2 border-brand" />
+        <div className="editorial-rule" aria-hidden="true" />
       </header>
       <main id="content" className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
         <p className="text-label text-brand">Temporarily unavailable</p>
@@ -54,6 +52,6 @@ export default function GlobalError({
           </Link>
         </div>
       </main>
-    </>
+    </div>
   );
 }

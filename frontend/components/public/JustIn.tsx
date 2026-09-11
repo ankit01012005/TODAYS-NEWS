@@ -3,16 +3,14 @@ import { PublicArticleSummary } from "@/lib/api/public-types";
 import { formatPublicTime } from "@/lib/format-date";
 import { SectionHeading } from "./SectionHeading";
 
-/// Brief §7 — the real-time discovery rail: newest stories first, each
-/// with its publication time in the identity red. The live indicator on
-/// the heading is the only motion here; new items simply appear at the
-/// top on the next revalidation — no flashing.
+/// Newest published stories. This feed is cached, so it deliberately
+/// avoids a live badge or moving ticker.
 export function JustIn({ articles }: { articles: PublicArticleSummary[] }) {
   if (articles.length === 0) return null;
 
   return (
     <section id="latest" aria-labelledby="latest-heading" className="scroll-mt-24">
-      <SectionHeading id="latest-heading" title="Just in" tone="brand" live />
+      <SectionHeading id="latest-heading" title="Latest" tone="brand" />
       <ol className="divide-y divide-rule">
         {articles.map((article) => (
           <li key={article.slug} className="py-space-3">

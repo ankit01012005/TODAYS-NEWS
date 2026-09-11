@@ -416,7 +416,7 @@
      motion; browsers without scroll timelines simply never show it. ---- */
   .mini-wordmark {
     opacity: 0;
-    transform: translateY(3px);
+    transform: translateY(calc(-50% + 3px));
     pointer-events: none;
   }
   @supports (animation-timeline: scroll()) {
@@ -429,7 +429,7 @@
   @keyframes mini-wordmark-in {
     to {
       opacity: 1;
-      transform: none;
+      transform: translateY(-50%);
       pointer-events: auto;
     }
   }
@@ -615,7 +615,7 @@ body {
 /* Brief §26 — grain overlay, desktop only (brief §20: expensive effects
    are disabled on mobile). pointer-events: none so it never intercepts. */
 @media (min-width: 900px) and (prefers-reduced-transparency: no-preference) {
-  body::before {
+  body:has(> .public-site)::before {
     content: "";
     position: fixed;
     inset: 0;
@@ -653,9 +653,7 @@ body {
   animation: 120ms ease-in both vt-fade reverse;
 }
 ::view-transition-new(.page-fade) {
-  animation:
-    220ms var(--ease-out-quart) 40ms both vt-fade,
-    420ms var(--ease-out-quart) both vt-rise;
+  animation: 200ms var(--ease-out-quart) both vt-fade;
 }
 ::view-transition-group(.morph) {
   animation-duration: 380ms;
@@ -675,6 +673,401 @@ body {
   }
   to {
     transform: none;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Atlas Edition public theme
+
+   These tokens live on the public route wrapper. The staff application
+   continues to inherit the original system tokens from :root/@theme.
+   ------------------------------------------------------------------ */
+.public-site {
+  --color-paper: #fffefa;
+  --color-surface: #f7f5ef;
+  --color-surface-sunken: #eef0e9;
+  --color-surface-deep: #e8eeea;
+  --color-ink: #152529;
+  --color-ink-secondary: #526166;
+  --color-ink-muted: #657176;
+  --color-ink-faint: #849095;
+  --color-rule: #d9dfda;
+  --color-rule-strong: #b8c2bd;
+  --color-brand: #c5422e;
+  --color-brand-deep: #9c3021;
+  --color-brand-wash: #f8e9e3;
+  --color-gold: #d4b778;
+  --color-gold-deep: #765d29;
+  --color-gold-wash: #f3ecdc;
+  --public-petrol: #103c42;
+  --duration-fast: 180ms;
+  --duration-base: 200ms;
+  --duration-slow: 420ms;
+  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
+  min-height: 100vh;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.public-site .text-display-0 {
+  font-size: clamp(2.15rem, 3.75vw, 3.5rem);
+  line-height: 1.02;
+  letter-spacing: -0.028em;
+}
+
+.public-site .text-display-1 {
+  font-size: clamp(2.15rem, 3.7vw, 3.75rem);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+}
+
+.public-site .text-display-2 {
+  font-size: clamp(2rem, 3vw, 3rem);
+  line-height: 1.08;
+}
+
+.public-site .text-heading-3 {
+  line-height: 1.25;
+}
+
+.public-site .text-meta time,
+.public-site time.text-meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.015em;
+}
+
+.public-masthead {
+  background: var(--color-paper);
+}
+
+.public-wordmark {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  color: var(--color-ink);
+  font-family: var(--font-serif);
+  font-size: clamp(2.65rem, 5vw, 4.5rem);
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 0.85;
+}
+
+.wordmark-signature {
+  width: 0.18em;
+  height: 0.58em;
+  margin-bottom: 0.05em;
+  margin-left: 0.13em;
+  background: var(--color-brand);
+  transform: skewX(-12deg);
+}
+
+.editorial-rule {
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-brand) 0 84px, var(--color-ink) 84px 100%);
+}
+
+.public-site .surface-band {
+  background: var(--color-paper);
+}
+
+.public-site .nav-link::after {
+  background: var(--color-brand);
+  transition-duration: 180ms;
+}
+
+.public-site .link-underline {
+  transition-duration: 180ms;
+}
+
+.public-site .img-zoom {
+  transition-duration: 420ms;
+}
+
+.public-site .group:hover .img-zoom,
+.public-site .group:focus-visible .img-zoom {
+  transform: scale(1.025);
+}
+
+.lead-media-shell {
+  isolation: isolate;
+  overflow: visible;
+  box-shadow: 0 16px 32px -22px rgba(21, 37, 41, 0.45);
+}
+
+.lead-media-shell::before,
+.lead-media-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  border: 1px solid var(--color-rule-strong);
+  background: var(--color-paper);
+}
+
+.lead-media-shell::before {
+  transform: translate(7px, 7px) rotate(0.35deg);
+}
+
+.lead-media-shell::after {
+  z-index: -1;
+  transform: translate(3px, 3px) rotate(-0.22deg);
+}
+
+.lead-media-shell > * {
+  overflow: hidden;
+}
+
+.daily-briefing {
+  display: grid;
+  gap: 28px;
+}
+
+.daily-briefing > * + * {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 24px;
+}
+
+.world-stage {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  background: var(--public-petrol);
+  box-shadow: 0 24px 54px -34px rgba(3, 20, 23, 0.7);
+}
+
+.world-stage::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 86px;
+  height: 3px;
+  background: var(--color-gold);
+}
+
+.world-stage-copy {
+  position: relative;
+  z-index: 3;
+  padding: clamp(28px, 5vw, 64px);
+}
+
+.world-stage-visual {
+  display: grid;
+  min-height: 300px;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 254, 250, 0.09), transparent 55%),
+    linear-gradient(140deg, rgba(255, 255, 255, 0.02), transparent 45%);
+}
+
+.world-stage-link {
+  border-bottom: 1px solid rgba(255, 254, 250, 0.46);
+  padding-bottom: 3px;
+}
+
+.world-stage-link span {
+  transition: transform 180ms var(--ease-out-quart);
+}
+
+.world-stage-link:hover span,
+.world-stage-link:focus-visible span {
+  transform: translateX(3px);
+}
+
+.world-meta p {
+  color: rgba(255, 254, 250, 0.58);
+}
+
+.atlas-globe {
+  position: relative;
+  width: min(100%, 520px);
+  aspect-ratio: 1;
+  contain: layout paint size;
+}
+
+.atlas-globe-fallback,
+.atlas-globe-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.atlas-globe-fallback {
+  inset: 9.5%;
+  width: 81%;
+  height: 81%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-radius: 50%;
+  background: radial-gradient(circle at 33% 26%, #fff 0, var(--color-paper) 48%, #d9ddd4 100%);
+  box-shadow: 0 24px 30px -22px rgba(3, 20, 23, 0.85);
+}
+
+.atlas-globe-fallback::before {
+  content: "";
+  position: absolute;
+  inset: 12% 8%;
+  opacity: 0.72;
+  background-image: radial-gradient(circle, var(--public-petrol) 0 1.15px, transparent 1.35px);
+  background-size: 8px 8px;
+  clip-path: polygon(4% 18%, 33% 8%, 47% 21%, 43% 38%, 58% 35%, 70% 12%, 96% 24%, 82% 50%, 93% 68%, 70% 82%, 59% 68%, 48% 94%, 30% 76%, 34% 52%, 11% 47%);
+}
+
+.atlas-meridian,
+.atlas-latitude {
+  position: absolute;
+  inset: 0 31%;
+  border: 1px solid rgba(212, 183, 120, 0.92);
+  border-radius: 50%;
+}
+
+.atlas-latitude {
+  inset: 22% 0;
+  border-color: rgba(16, 60, 66, 0.14);
+}
+
+.atlas-latitude-one {
+  transform: translateY(-18%) rotateX(64deg);
+}
+
+.atlas-latitude-two {
+  transform: translateY(18%) rotateX(64deg);
+}
+
+.atlas-globe-canvas {
+  z-index: 2;
+  touch-action: pan-y;
+}
+
+.editorial-auto-grid,
+.typography-desk {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+  gap: 28px;
+}
+
+.typography-desk > * {
+  border-top: 1px solid var(--color-rule);
+  padding-top: 18px;
+}
+
+.desk-section-sage,
+.desk-roundup {
+  background: var(--color-surface-deep);
+}
+
+.desk-section-sage {
+  margin-inline: -16px;
+  padding: 28px 16px;
+}
+
+.article-title {
+  max-width: 20ch;
+  font-family: var(--font-serif);
+  font-size: clamp(2.25rem, 4.6vw, 4rem);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.public-article-body {
+  font-size: clamp(1.125rem, 1.4vw, 1.25rem);
+  line-height: 1.72;
+}
+
+.public-footer {
+  border-top: 3px solid var(--color-brand);
+  background: var(--public-petrol);
+  color: var(--color-paper);
+}
+
+.public-footer-wordmark {
+  font-family: var(--font-serif);
+  font-size: clamp(2.5rem, 4vw, 3.75rem);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+}
+
+.world-stage *:focus-visible,
+.public-footer *:focus-visible {
+  outline-color: var(--color-paper);
+}
+
+@media (min-width: 900px) {
+  .daily-briefing {
+    grid-template-columns: 1.15fr 0.9fr 1fr 1fr;
+    align-items: start;
+    gap: 0;
+  }
+
+  .daily-briefing > * {
+    min-width: 0;
+    padding-inline: 24px;
+  }
+
+  .daily-briefing > *:first-child {
+    padding-left: 0;
+  }
+
+  .daily-briefing > *:last-child {
+    padding-right: 0;
+  }
+
+  .daily-briefing > * + * {
+    border-top: 0;
+    border-left: 1px solid var(--color-rule);
+    padding-top: 0;
+  }
+
+  .world-stage {
+    grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
+    align-items: stretch;
+  }
+
+  .desk-section-sage {
+    margin-inline: -24px;
+    padding: 36px 24px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .public-site .reveal {
+    animation: none;
+  }
+
+  .public-site .reveal-prepared {
+    opacity: 0;
+    transform: translateY(10px);
+    transition:
+      opacity 380ms var(--ease-out-quart),
+      transform 380ms var(--ease-out-quart);
+  }
+
+  .public-site .reveal-prepared.reveal-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  .public-site .reveal-stagger > .reveal-prepared:nth-child(2) {
+    transition-delay: 40ms;
+  }
+
+  .public-site .reveal-stagger > .reveal-prepared:nth-child(3) {
+    transition-delay: 80ms;
+  }
+
+  .public-site .reveal-stagger > .reveal-prepared:nth-child(4) {
+    transition-delay: 120ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atlas-globe-canvas {
+    display: none;
   }
 }
 

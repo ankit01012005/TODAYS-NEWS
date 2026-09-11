@@ -201,9 +201,10 @@ export function Meta({
   compact?: boolean;
 }) {
   const color = tone === "light" ? "text-paper/70" : "text-ink-muted";
+  const byline = article.byline.trim();
   return (
     <p className={`${compact ? "mt-space-1" : "mt-space-3"} text-meta ${color}`}>
-      {compact ? null : <>By {article.byline} · </>}
+      {!compact && byline ? <>By {byline} · </> : null}
       <time dateTime={article.publishedAt}>{formatCardTime(article.publishedAt)}</time>
     </p>
   );

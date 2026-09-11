@@ -1,6 +1,7 @@
 import { ViewTransition } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicSite } from "@/components/layout/PublicSite";
 import { HeroStory } from "@/components/public/HeroStory";
 import { StoryGrid } from "@/components/public/StoryGrid";
 import { JustIn } from "@/components/public/JustIn";
@@ -8,6 +9,7 @@ import { TopStories } from "@/components/public/TopStories";
 import { SocialPicks } from "@/components/public/SocialPicks";
 import { EditorsPicks } from "@/components/public/EditorsPicks";
 import { CategorySection } from "@/components/public/CategorySection";
+import { WorldStage } from "@/components/public/WorldStage";
 import { EmptyState } from "@/components/public/EmptyState";
 import { getCategories, getCategoryWithArticles, getPublishedArticles, getSocialPicks } from "@/lib/api/public";
 import { PublicArticleSummary } from "@/lib/api/public-types";
@@ -27,8 +29,8 @@ export default async function HomePage() {
 
   if (!lead) {
     return (
-      <>
-        <PublicHeader />
+      <PublicSite>
+        <PublicHeader activeHome />
         <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 py-space-6 md:px-space-5">
           <EmptyState
             heading="No stories published yet"
@@ -36,15 +38,15 @@ export default async function HomePage() {
           />
         </main>
         <PublicFooter />
-      </>
+      </PublicSite>
     );
   }
 
   const heroSecondary = articles.slice(1, 4);
-  const gridStories = articles.slice(4, 10);
-  const latest = articles.slice(0, 7);
-  const top = articles.slice(10, 14);
-  const shownAbove = new Set(articles.slice(0, 14).map((a) => a.slug));
+  const gridStories = articles.slice(4, 8);
+  const latest = articles.slice(0, 5);
+  const top = articles.slice(8, 12);
+  const shownAbove = new Set(articles.slice(0, 12).map((a) => a.slug));
   const picks = pickOnePerDesk(articles, shownAbove, 4);
 
   const sections = (
@@ -55,19 +57,23 @@ export default async function HomePage() {
       }),
     )
   ).filter((s): s is { category: (typeof categories)[number]; articles: PublicArticleSummary[] } => s !== null);
+  const worldSection = sections.find(
+    ({ category }) => category.slug.toLowerCase() === "world" || category.name.toLowerCase() === "world",
+  );
+  const deskSections = sections.filter((section) => section !== worldSection);
 
   return (
-    <>
-      <PublicHeader />
+    <PublicSite>
+      <PublicHeader activeHome />
       <ViewTransition default="page-fade">
         <main id="content">
           <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
-            <HeroStory lead={lead} secondary={heroSecondary} />
+            <HeroStory lead={lead} secondary={heroSecondary} latest={latest} />
           </div>
 
           {gridStories.length > 0 ? (
             <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
-              <StoryGrid stories={gridStories} latest={latest} />
+              <StoryGrid stories={gridStories} />
             </div>
           ) : (
             <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5">
@@ -76,6 +82,12 @@ export default async function HomePage() {
               </div>
             </div>
           )}
+
+          {worldSection ? (
+            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
+              <WorldStage category={worldSection.category} articles={worldSection.articles.slice(0, 3)} />
+            </div>
+          ) : null}
 
           {top.length >= 2 ? (
             <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
@@ -95,14 +107,15 @@ export default async function HomePage() {
             </div>
           ) : null}
 
-          {sections.length > 0 ? (
+          {deskSections.length > 0 ? (
             <div className="mx-auto max-w-(--width-page-max) space-y-space-8 px-space-4 pt-space-8 md:space-y-space-9 md:px-space-5 md:pt-space-9">
-              {sections.map((section, index) => (
+              {deskSections.map((section, index) => (
                 <CategorySection
                   key={section.category.slug}
                   category={section.category}
                   articles={section.articles}
-                  composition={index % 2 === 0 ? "lead" : "row"}
+                  composition={(index % 3 === 0 ? "lead" : index % 3 === 1 ? "row" : "text")}
+                  tone={index % 4 === 2 ? "sage" : "paper"}
                 />
               ))}
             </div>
@@ -110,7 +123,7 @@ export default async function HomePage() {
         </main>
       </ViewTransition>
       <PublicFooter />
-    </>
+    </PublicSite>
   );
 }
 

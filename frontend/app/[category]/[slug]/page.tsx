@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ViewTransition } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
+import { PublicSite } from "@/components/layout/PublicSite";
 import { ArticleHeader } from "@/components/public/ArticleHeader";
 import { ArticleBody } from "@/components/public/ArticleBody";
 import { SourcesBlock } from "@/components/public/SourcesBlock";
@@ -41,7 +42,7 @@ export default async function ArticlePage({ params }: { params: Promise<PagePara
   };
 
   return (
-    <>
+    <PublicSite>
       {/* SEO-05 — NewsArticle structured data, built from the same
           response already fetched above; no second request. */}
       <script
@@ -75,7 +76,7 @@ export default async function ArticlePage({ params }: { params: Promise<PagePara
         </main>
       </ViewTransition>
       <PublicFooter />
-    </>
+    </PublicSite>
   );
 }
 

@@ -1,0 +1,115 @@
+{
+  "browser": "Chrome/152.0.7977.83",
+  "baseUrl": "http://localhost:3100",
+  "capturedAt": "2026-09-11T20:18:21.391Z",
+  "measurements": [
+    {
+      "route": "/",
+      "viewport": {
+        "width": 360,
+        "height": 800
+      },
+      "scrollWidth": 360,
+      "loadMs": 164.90000000596046,
+      "cls": 0,
+      "lcp": 332,
+      "longTasks": 2
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "loadMs": 53.70000001788139,
+      "cls": 0,
+      "lcp": 104,
+      "longTasks": 0
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "scrollWidth": 768,
+      "loadMs": 84.59999999403954,
+      "cls": 0,
+      "lcp": 112,
+      "longTasks": 0
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "width": 1024,
+        "height": 900
+      },
+      "scrollWidth": 1024,
+      "loadMs": 64.69999998807907,
+      "cls": 0,
+      "lcp": 180,
+      "longTasks": 0
+    },
+    {
+      "route": "/",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scrollWidth": 1440,
+      "loadMs": 43.80000001192093,
+      "cls": 0,
+      "lcp": 148,
+      "longTasks": 0
+    },
+    {
+      "route": "/world",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scrollWidth": 1440,
+      "loadMs": 76.5,
+      "cls": 0,
+      "lcp": 132,
+      "longTasks": 0
+    },
+    {
+      "route": "/world/coastal-cities-accelerate-flood-defense-projects",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "scrollWidth": 390,
+      "loadMs": 82.19999998807907,
+      "cls": 0,
+      "lcp": 92,
+      "longTasks": 0
+    },
+    {
+      "route": "/world/coastal-cities-accelerate-flood-defense-projects",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scrollWidth": 1440,
+      "loadMs": 102.80000001192093,
+      "cls": 0,
+      "lcp": 160,
+      "longTasks": 0
+    },
+    {
+      "route": "/staff/sign-in",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "scrollWidth": 1440,
+      "loadMs": 72.19999998807907,
+      "cls": 0.014479423868312758,
+      "lcp": 76,
+      "longTasks": 0
+    }
+  ]
+}

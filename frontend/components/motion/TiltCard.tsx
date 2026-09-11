@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef } from "react";
 
-/// Brief §16 — a few degrees of perspective that follow the cursor, with
+/// A small amount of perspective for the lead photograph, with
 /// an inner `.tilt-layer` (the image) drifting a few pixels the other way
 /// so the card reads as two planes. Everything visual lives in CSS
 /// (globals.css `.tilt`); this only writes four custom properties on
@@ -11,8 +11,8 @@ import { ReactNode, useEffect, useRef } from "react";
 export function TiltCard({
   children,
   className = "",
-  maxDegrees = 2.5,
-  shift = 6,
+  maxDegrees = 1.5,
+  shift = 4,
 }: {
   children: ReactNode;
   className?: string;
