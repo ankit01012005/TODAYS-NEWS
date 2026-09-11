@@ -48,11 +48,14 @@ export async function requireSession(): Promise<AuthenticatedUser> {
 
 /// docs/09 §8 / docs/10 — capability checks belong on the server that
 /// enforces them (SEC-01/SEC-02); this is a UI-routing convenience only
-/// ("send an editor away from an admin-only page"), never the security
-/// boundary itself — the backend refuses the underlying request either way.
+/// ("send an editor away from an admin-only page, or an admin away from an
+/// editor-only one"), never the security boundary itself — the backend
+/// refuses the underlying request either way. The roles are a strict split
+/// (backend/src/common/capabilities.ts), so an exact match is the whole
+/// rule: neither role stands in for the other any more.
 export async function requireRole(role: "EDITOR" | "ADMIN"): Promise<AuthenticatedUser> {
   const user = await requireSession();
-  if (role === "ADMIN" && user.role !== "ADMIN") {
+  if (user.role !== role) {
     redirect("/staff/access-denied");
   }
   return user;

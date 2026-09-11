@@ -143,7 +143,16 @@ withdrawal notice — is `OQ-16`, a UI decision that does not affect the schema.
 
 ---
 
-## 2. Admin self-approval — resolved
+## 2. Admin self-approval — resolved, then superseded
+
+**[SUPERSEDED 2026-09-11]** This section's decision (2.1) held while admin
+could still author articles. That premise no longer holds: admin lost every
+authoring capability on 2026-09-11 (`03-user-roles-and-permissions.md` §2.3;
+`backend/src/common/capabilities.ts`), so an admin can never own or author an
+article and self-approval is now structurally impossible rather than merely
+forbidden. `BR-13` is superseded (`02-requirements.md`); `DM-06` below is
+superseded accordingly. The reasoning in §2.2 is kept for history, not as
+current guidance.
 
 ### 2.1 Decision
 
@@ -393,7 +402,7 @@ pointed — see §2.4)* · `P2-07` preview addressing.
 | **DM-03** | Public visibility is `current_published_revision_id`, one predicate | `BR-01` implementation | **FINAL** |
 | **DM-04** | `publication_status`: never published / live / withdrawn | `P2-19` (modelling half) | **FINAL** |
 | **DM-05** | Superseded revisions become `ARCHIVED`; no eighth state invented | `04` §2, `11` §1 | **FINAL** |
-| **DM-06** | **Admin cannot approve or publish their own or their own last-revised article** | `BR-13` over `OQ-29`; `P2-01`, `C-1` | **FINAL** |
+| **DM-06** | ~~Admin cannot approve or publish their own or their own last-revised article~~ | `BR-13` over `OQ-29`; `P2-01`, `C-1` | **SUPERSEDED 2026-09-11** — moot, admin cannot author at all (§2 banner) |
 | **DM-07** | Article body is structured blocks as validated JSON | `OQ-22`(c) | **FINAL** |
 | **DM-08** | No contributor HTML is ever rendered; no `dangerouslySetInnerHTML` in the article renderer | `SEC-07` | **FINAL** |
 | **DM-09** | Ten entities as listed in §4.1; tags deferred but additive | `SCL-04` | **FINAL** |

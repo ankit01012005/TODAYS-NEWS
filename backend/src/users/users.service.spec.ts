@@ -22,12 +22,30 @@ describe("users.service — BR-14 error mapping", () => {
     jest.clearAllMocks();
   });
 
-  it("maps the BR-14 trigger's raw Postgres exception to a clean 409, never leaking it", async () => {
+  it("maps the least-one-admin trigger's raw Postgres exception to a clean 409, never leaking it", async () => {
     mockedPrisma.user.update.mockRejectedValue(
       new Error("at least one active admin must exist at all times (BR-14)"),
     );
 
     await expect(usersService.changeRole("u1", "EDITOR")).rejects.toThrow(ConflictError);
+  });
+
+  it("maps the most-one-admin trigger's raw Postgres exception to a clean 409, never leaking it", async () => {
+    mockedPrisma.user.update.mockRejectedValue(
+      new Error("at most one active admin may exist at a time (BR-14)"),
+    );
+
+    await expect(usersService.changeRole("u1", "ADMIN")).rejects.toThrow(ConflictError);
+  });
+
+  it("invite() maps a second-admin attempt to a clean 409, never a raw 500", async () => {
+    mockedPrisma.user.create.mockRejectedValue(
+      new Error("at most one active admin may exist at a time (BR-14)"),
+    );
+
+    await expect(usersService.invite("second-admin@example.com", "Someone", "ADMIN")).rejects.toThrow(
+      ConflictError,
+    );
   });
 
   it("leaves an unrelated database error untouched — not every failure is BR-14", async () => {

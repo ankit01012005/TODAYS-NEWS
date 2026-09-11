@@ -85,11 +85,16 @@ export function ArticleEditor({
   const router = useRouter();
   const latestHistoryRevision = history.at(-1) ?? null;
   const displayRevision: RevisionView | null = article.openRevision ?? article.publishedRevision ?? latestHistoryRevision;
-  const isEditable = article.openRevision !== null && EDITABLE_STATES.includes(article.openRevision.state);
+  const isAdmin = viewerRole === "ADMIN";
+  // Admin has no authoring capability at all (backend/src/common/capabilities.ts)
+  // — these two can reach an admin viewer (assertOwnerOrAdmin lets admin open
+  // any article to review it), so they must exclude admin explicitly rather
+  // than relying on article state alone, unlike before admin could author too.
+  const isEditable =
+    !isAdmin && article.openRevision !== null && EDITABLE_STATES.includes(article.openRevision.state);
   const isInReview = article.openRevision?.state === "IN_REVIEW";
   const hasNoOpenRevision = article.openRevision === null;
-  const canStartCorrection = article.publicationStatus === "LIVE" && hasNoOpenRevision;
-  const isAdmin = viewerRole === "ADMIN";
+  const canStartCorrection = !isAdmin && article.publicationStatus === "LIVE" && hasNoOpenRevision;
   // Admin-only recovery actions (docs/10 A-08/A-09, docs/11 T12/T14/T15/T16)
   // — each operates on the state a rejected/archived/live-with-no-draft
   // article is actually in, none of which are "editable" in the Save/
@@ -324,6 +329,12 @@ export function ArticleEditor({
         </Alert>
       ) : null}
 
+      {isAdmin && !isInReview && article.openRevision ? (
+        <Alert variant="info" title="Read-only">
+          Editors write stories; you review them. Submitted stories appear in the review queue.
+        </Alert>
+      ) : null}
+
       {canStartCorrection ? (
         <Alert variant="info" title="This story is published">
           <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
@@ -393,7 +404,7 @@ export function ArticleEditor({
         <div>
           <span className="text-label text-ink-muted">Section</span>
           <select
-            className="mt-1 h-10 w-full rounded-sm border border-rule-strong px-space-3 text-body text-ink"
+            className="mt-1 h-10 w-full rounded-sm border border-rule-strong bg-paper px-space-3 text-body text-ink disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-muted"
             disabled={!isEditable}
             value={form.categoryId}
             onChange={(e) => update("categoryId", e.target.value)}
@@ -490,7 +501,7 @@ export function ArticleEditor({
           </div>
         )}
 
-        {isInReview ? (
+        {isInReview && !isAdmin ? (
           <div className="border-t border-rule pt-space-4">
             <Button type="button" variant="destructive" loading={withdrawing} onClick={handleWithdraw}>
               Withdraw from review

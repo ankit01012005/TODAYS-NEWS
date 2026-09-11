@@ -105,7 +105,10 @@ function Inline({ spans }: { spans: InlineSpan[] }) {
           else if (mark === "em") node = <em>{node}</em>;
           else if (typeof mark === "object" && mark.type === "link") {
             node = (
-              <a href={mark.href} className="text-accent underline">
+              <a
+                href={mark.href}
+                className="text-ink underline decoration-brand/60 decoration-1 underline-offset-4 transition-colors hover:decoration-brand"
+              >
                 {node}
               </a>
             );
@@ -122,7 +125,7 @@ export function ArticleBody({ body }: { body: unknown }) {
   const blocks = body.map(asBlock).filter((b): b is Block => b !== null);
 
   return (
-    <div className="text-body-lg text-ink">
+    <div className="drop-cap text-body-lg text-ink">
       {blocks.map((block, i) => (
         <BlockView key={i} block={block} />
       ))}
@@ -152,9 +155,15 @@ function BlockView({ block }: { block: Block }) {
     }
     case "image":
       return (
-        <figure className="mt-space-6">
-          <div className="relative aspect-3/2 bg-surface-sunken">
-            <Image src={block.url} alt={block.alt} fill className="object-cover" />
+        <figure className="mt-space-7 md:-mx-space-8">
+          <div className="relative aspect-3/2 overflow-hidden bg-surface-sunken">
+            <Image
+              src={block.url}
+              alt={block.alt}
+              fill
+              sizes="(min-width: 900px) 808px, 100vw"
+              className="object-cover"
+            />
           </div>
           {block.caption || block.credit ? (
             <figcaption className="mt-space-2 text-caption text-ink-muted">
@@ -167,10 +176,12 @@ function BlockView({ block }: { block: Block }) {
       );
     case "quote":
       return (
-        <blockquote className="mt-space-6 border-l-[3px] border-masthead pl-space-5 text-heading-3">
-          <Inline spans={block.content} />
+        <blockquote className="my-space-7 border-l-2 border-gold pl-space-5 md:-ml-space-6 md:pl-space-6">
+          <p className="text-heading-2 font-normal italic text-ink">
+            <Inline spans={block.content} />
+          </p>
           {block.attribution ? (
-            <footer className="mt-space-2 text-meta text-ink-muted">— {block.attribution}</footer>
+            <footer className="mt-space-3 text-label text-gold-deep">{block.attribution}</footer>
           ) : null}
         </blockquote>
       );

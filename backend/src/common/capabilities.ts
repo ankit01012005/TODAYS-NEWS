@@ -8,6 +8,14 @@ import { UserRole } from "@prisma/client";
 /// so the Reviews domain (Phase 4C-2) can map each transition directly onto
 /// one of these. Ownership ("is this THEIR article") is a separate check,
 /// made by the service layer — never conflate the two (docs/23 §12.1).
+///
+/// Roles are a strict split, not a hierarchy: editors author, admin reviews
+/// and manages — admin has no route to any authoring capability, by
+/// construction, the same way editors have no route to any review:*
+/// capability. This also means an admin can never own or author an article,
+/// so BR-13 (self-approval) is structurally impossible and was removed
+/// rather than kept as unreachable code (see migration
+/// 20260911020000_admin_review_only_and_single_admin).
 export type Capability =
   | "article:create"
   | "article:save"
@@ -40,11 +48,10 @@ const EDITOR_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
   "media:upload",
 ]);
 
-/// docs/03 §2.3: admins can do everything an editor can, plus the
-/// privileged actions. BR-05 — editors have no route to any review:*
-/// capability, by construction, not by omission.
+/// docs/03 §2.3 (superseded) — admin is review-and-manage only, never an
+/// author. BR-05 — editors have no route to any review:* capability, by
+/// construction, not by omission; the converse now holds for admin too.
 const ADMIN_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
-  ...EDITOR_CAPABILITIES,
   "article:view-any",
   "review:request-changes",
   "review:approve",

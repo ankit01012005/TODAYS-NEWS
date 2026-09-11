@@ -1,34 +1,55 @@
 @import "tailwindcss";
 
 /**
- * Design tokens — Direction A, Broadsheet. Client-approved and fixed
- * (memory: today-news-canonical-visual-direction). Every value below is
- * taken verbatim from docs/19-design-system.md §6's token reference; do not
- * invent a new colour, size or spacing value in a component — add it here
- * first, with a citation, the way every other token was added.
+ * Design tokens — Direction A, Broadsheet (memory:
+ * today-news-canonical-visual-direction), extended by the premium redesign
+ * brief of 2026-09-11. The seven Direction A commitments (docs/20 §5) still
+ * hold: Newsreader for editorial type, Inter for interface, warm neutrals,
+ * rules as the structural device, square-cornered photography, #9B2C1E as
+ * identity/signal (never a button), one system at three densities.
+ *
+ * What the brief adds on top: a warm-white/ivory ground instead of pure
+ * white, the masthead red promoted to a brand/signal token, a champagne
+ * gold for editorial curation, a 3-level depth scale used only at the
+ * featured/floating levels (rules stay the default), motion/easing tokens,
+ * and a larger display scale for the hero. Add new values here first, with
+ * a citation, the way every other token was added.
  *
  * "One system, three densities" (docs/19 §0): these tokens are shared by
  * the public site and both CMS areas without a separate theme.
  */
 @theme {
-  /* ---- Colour — docs/19 §1.1 ---- */
+  /* ---- Colour — docs/19 §1.1, warmed per the 2026-09-11 brief §2 ---- */
   --color-ink: #14161a;
   --color-ink-secondary: #3d434b;
   --color-ink-muted: #5b6068;
   --color-ink-faint: #878c94;
-  --color-rule: #e3e1dc;
-  --color-rule-strong: #c9c6bf;
-  --color-paper: #ffffff;
-  --color-surface: #f7f6f3;
-  --color-surface-sunken: #efede8;
+  --color-rule: #e6e2da;
+  --color-rule-strong: #cfc9bf;
+  --color-paper: #fffdf9;
+  --color-surface: #f8f5ef;
+  --color-surface-sunken: #f0ece4;
+  --color-surface-deep: #e8e2d6;
 
+  /* Interactive accent for the CMS (buttons, active nav, focus). The public
+     site uses ink for interaction and the brand red only as signal. */
   --color-accent: #2d5f8a;
   --color-accent-hover: #234b6e;
   --color-accent-wash: #eaf0f6;
 
-  /* Publication identity only — masthead rule and wordmark. Never on an
-     interactive element (docs/19 §1.1, the 6th commitment in §5 of `20`). */
+  /* Publication identity — masthead rule, wordmark, and (brief §2) signal
+     uses: live/breaking indicators, section rules, trending numerals.
+     Never on an interactive element (docs/19 §1.1, docs/20 §5 rule 6). */
   --color-masthead: #9b2c1e;
+  --color-brand: #9b2c1e;
+  --color-brand-deep: #731f15;
+  --color-brand-wash: #f8ece9;
+
+  /* Editorial curation accent — brief §2 / §10. Reserved for Editor's
+     picks and pull-quote details so it stays meaningful. */
+  --color-gold: #b3924f;
+  --color-gold-deep: #7a6030;
+  --color-gold-wash: #f6f0e2;
 
   --color-success: #3a6f4a;
   --color-success-wash: #eaf2ec;
@@ -73,15 +94,26 @@
 
   /* ---- Radius — docs/19 §1.3. Overrides Tailwind's own rounded-sm/md so
      every use of them already matches the system; photography stays
-     radius-0 via Tailwind's built-in `rounded-none`. ---- */
+     radius-0 via Tailwind's built-in `rounded-none`. `pill` is for tags
+     and the live indicator only. ---- */
   --radius-sm: 3px;
   --radius-md: 6px;
+  --radius-pill: 999px;
 
-  /* ---- Elevation — docs/19 §1.3. elevation-0 (none) is simply the
-     absence of a shadow class; public pages use rules, not shadows. Only
-     modals/popovers use these, and neither exists yet in Phase 5A. ---- */
+  /* ---- Depth — brief §27, layered on docs/19 §1.3's elevation. Public
+     surfaces default to rules (depth 0). depth-1 is a soft card, depth-2 a
+     featured story, depth-3 a floating interactive element (sticky bar,
+     popover). elevation-1/2 are kept for the CMS's existing modals. ---- */
   --shadow-elevation-1: 0 1px 2px rgba(20, 22, 26, 0.06);
   --shadow-elevation-2: 0 8px 24px rgba(20, 22, 26, 0.12);
+  --shadow-depth-1: 0 1px 2px rgba(20, 22, 26, 0.05), 0 1px 1px rgba(20, 22, 26, 0.03);
+  --shadow-depth-2: 0 14px 34px -16px rgba(20, 22, 26, 0.24), 0 2px 6px -2px rgba(20, 22, 26, 0.06);
+  --shadow-depth-3: 0 26px 60px -22px rgba(20, 22, 26, 0.32), 0 4px 12px -4px rgba(20, 22, 26, 0.08);
+
+  /* ---- Motion — brief §17/§18. Quick, polished, never delaying content. ---- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
 
   /* ---- Layout — docs/19 §1.3 ---- */
   --width-page-max: 1280px;
@@ -98,29 +130,63 @@
   --breakpoint-xl: 1440px;
 }
 
+:root {
+  color-scheme: light;
+
+  --duration-fast: 160ms;
+  --duration-base: 280ms;
+  --duration-slow: 560ms;
+
+  --z-nav: 40;
+  --z-progress: 45;
+  --z-overlay: 50;
+
+  /* Brief §26 — paper grain, felt rather than noticed. A tiled SVG noise
+     texture at 3% multiply; see body::before. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /**
- * Type scale — docs/19 §1.2. Deliberately plain CSS classes rather than
- * Tailwind @theme font-size tokens: three of these (display-1, display-2,
- * body-lg) have a DIFFERENT value below `md` per §1.2's "Mobile
- * adjustments" table, which is most reliably expressed as an ordinary
- * mobile-first override rather than relying on undocumented internals of
- * how a design-tool-generated utility class resolves its variables.
+ * Type scale — docs/19 §1.2, extended with display-0 (hero) and
+ * headline-lg (feature card) per brief §13. Deliberately plain CSS classes
+ * rather than Tailwind @theme font-size tokens: several steps have a
+ * DIFFERENT value below `md` per §1.2's "Mobile adjustments" table, which
+ * is most reliably expressed as an ordinary mobile-first override.
  *
  * Rule 5 (§1.2): `label` is the only uppercase style anywhere.
  */
 @layer utilities {
+  .text-display-0 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 38px;
+    line-height: 1.05;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
   .text-display-1 {
     font-family: var(--font-serif);
     font-weight: 600;
     font-size: 34px;
-    line-height: 42px;
-    letter-spacing: -0.015em;
+    line-height: 40px;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
   }
   .text-display-2 {
     font-family: var(--font-serif);
     font-weight: 600;
     font-size: 30px;
-    line-height: 38px;
+    line-height: 36px;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
+  }
+  .text-headline-lg {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 32px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
   }
   .text-body-lg {
     font-family: var(--font-serif);
@@ -129,6 +195,10 @@
     line-height: 30px;
   }
   @media (min-width: 900px) {
+    .text-display-0 {
+      font-size: 64px;
+      line-height: 1.02;
+    }
     .text-display-1 {
       font-size: 56px;
       line-height: 60px;
@@ -137,9 +207,18 @@
       font-size: 44px;
       line-height: 50px;
     }
+    .text-headline-lg {
+      font-size: 32px;
+      line-height: 38px;
+    }
     .text-body-lg {
       font-size: 19px;
       line-height: 32px;
+    }
+  }
+  @media (min-width: 1200px) {
+    .text-display-0 {
+      font-size: 76px;
     }
   }
 
@@ -148,18 +227,23 @@
     font-weight: 600;
     font-size: 34px;
     line-height: 42px;
+    letter-spacing: -0.012em;
+    text-wrap: balance;
   }
   .text-heading-2 {
     font-family: var(--font-serif);
     font-weight: 600;
     font-size: 27px;
     line-height: 36px;
+    letter-spacing: -0.008em;
+    text-wrap: balance;
   }
   .text-heading-3 {
     font-family: var(--font-serif);
     font-weight: 600;
     font-size: 22px;
     line-height: 30px;
+    text-wrap: balance;
   }
   .text-heading-4 {
     font-family: var(--font-sans);
@@ -167,11 +251,19 @@
     font-size: 18px;
     line-height: 26px;
   }
+  .text-headline-sm {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 18px;
+    line-height: 24px;
+    text-wrap: balance;
+  }
   .text-standfirst {
     font-family: var(--font-serif);
     font-weight: 400;
     font-size: 21px;
     line-height: 32px;
+    text-wrap: pretty;
   }
   .text-body {
     font-family: var(--font-sans);
@@ -205,23 +297,403 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
+  .text-numeral {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (min-width: 900px) {
+    .text-numeral {
+      font-size: 56px;
+    }
+  }
+  .text-wordmark {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 0.9;
+  }
+
+  /* ---- Surfaces ---- */
+  .surface-band {
+    background-image: linear-gradient(180deg, var(--color-paper) 0%, var(--color-surface) 100%);
+  }
+  .surface-scrim {
+    background-image: linear-gradient(
+      180deg,
+      rgba(20, 22, 26, 0) 0%,
+      rgba(20, 22, 26, 0.08) 35%,
+      rgba(20, 22, 26, 0.72) 100%
+    );
+  }
+  .surface-scrim-strong {
+    background-image: linear-gradient(
+      180deg,
+      rgba(20, 22, 26, 0.05) 0%,
+      rgba(20, 22, 26, 0.35) 45%,
+      rgba(20, 22, 26, 0.86) 100%
+    );
+  }
+
+  /* ---- Links — brief §18, animated underline that grows from the left.
+     `.group:hover` lets a whole card drive its headline's underline. ---- */
+  .link-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    padding-bottom: 1px;
+    text-decoration: none;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    transition: background-size var(--duration-base) var(--ease-out-quart);
+  }
+  .link-underline:hover,
+  .link-underline:focus-visible,
+  .group:hover .link-underline,
+  .group:focus-visible .link-underline {
+    background-size: 100% 1px;
+  }
+  .link-underline-2 {
+    background-size: 0% 2px;
+  }
+  .group:hover .link-underline-2,
+  .link-underline-2:hover {
+    background-size: 100% 2px;
+  }
+
+  /* ---- Imagery — brief §15. Slow, cinematic zoom; no bounce. ---- */
+  .img-zoom {
+    transition: transform 900ms var(--ease-out-quart);
+    will-change: transform;
+  }
+  .group:hover .img-zoom,
+  .group:focus-visible .img-zoom {
+    transform: scale(1.035);
+  }
+
+  /* ---- Navigation underline — brief §18 ---- */
+  .nav-link {
+    position: relative;
+  }
+  .nav-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--duration-base) var(--ease-out-quart);
+  }
+  .nav-link:hover::after,
+  .nav-link:focus-visible::after,
+  .nav-link[aria-current="page"]::after,
+  .nav-link[aria-selected="true"]::after {
+    transform: scaleX(1);
+  }
+
+  /* ---- Horizontal rails (mobile nav, Just In strip) ---- */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .fade-edges {
+    mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent 100%);
+  }
+
+  /* ---- Sticky-nav mini wordmark — fades in once the masthead has
+     scrolled away, driven by the document scroll timeline (no JS). It is
+     scroll-linked state rather than motion, so it stays on under reduced
+     motion; browsers without scroll timelines simply never show it. ---- */
+  .mini-wordmark {
+    opacity: 0;
+    transform: translateY(3px);
+    pointer-events: none;
+  }
+  @supports (animation-timeline: scroll()) {
+    .mini-wordmark {
+      animation: mini-wordmark-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 120px 240px;
+    }
+  }
+  @keyframes mini-wordmark-in {
+    to {
+      opacity: 1;
+      transform: none;
+      pointer-events: auto;
+    }
+  }
+
+  /* ---- Live indicator — brief §7, a restrained pulse. ---- */
+  .live-dot {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-brand);
+  }
+  .live-dot::before {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 999px;
+    border: 1.5px solid var(--color-brand);
+    opacity: 0;
+    animation: live-ring 2.4s var(--ease-out-quart) infinite;
+  }
+  @keyframes live-ring {
+    0% {
+      transform: scale(0.6);
+      opacity: 0.7;
+    }
+    70% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.35);
+      opacity: 0;
+    }
+  }
+
+  /* ---- Skeletons — brief §22 ---- */
+  .skeleton {
+    background-color: var(--color-surface-sunken);
+    background-image: linear-gradient(
+      90deg,
+      var(--color-surface-sunken) 0%,
+      var(--color-surface) 45%,
+      var(--color-surface-sunken) 90%
+    );
+    background-size: 300% 100%;
+    animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes skeleton-shimmer {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: -100% 0;
+    }
+  }
+
+  /* ---- Drop cap — brief §12/§13 ---- */
+  .drop-cap > p:first-of-type::first-letter {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 3.6em;
+    line-height: 0.78;
+    float: left;
+    padding-right: 0.1em;
+    margin-top: 0.07em;
+    color: var(--color-ink);
+  }
+
+  /* ---- Subtle 3D — brief §16. The tilt values are written by
+     components/motion/TiltCard.tsx as CSS custom properties; the inner
+     layer moves slightly independently of the outer card. ---- */
+  .tilt {
+    transform: perspective(1400px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transform-style: preserve-3d;
+    transition: transform 700ms var(--ease-out-quart);
+  }
+  .tilt[data-tilting="true"] {
+    transition: transform 140ms ease-out;
+  }
+  .tilt-layer {
+    transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
+    transition: transform 700ms var(--ease-out-quart);
+  }
+  .tilt[data-tilting="true"] .tilt-layer {
+    transition: transform 140ms ease-out;
+  }
+
+  /* ---- Scroll reveal — brief §17. Pure CSS scroll-driven animation:
+     nothing is hidden for browsers without support, nothing runs when
+     reduced motion is requested, and content already in view at load is
+     at its end state (no LCP cost). ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .reveal {
+        animation: reveal-up linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 32%;
+      }
+      .reveal-stagger > :nth-child(2) {
+        animation-range: entry 6% entry 38%;
+      }
+      .reveal-stagger > :nth-child(3) {
+        animation-range: entry 12% entry 44%;
+      }
+      .reveal-stagger > :nth-child(n + 4) {
+        animation-range: entry 18% entry 50%;
+      }
+      .parallax-hero {
+        animation: parallax-down linear both;
+        animation-timeline: scroll();
+        animation-range: 0 60vh;
+      }
+    }
+  }
+
+  /* ---- Reading progress — brief §14. A 2px bar at the top of the
+     viewport whose width is the document scroll position, driven entirely
+     by the scroll timeline: no scroll listener, no layout reads. It is
+     decorative (aria-hidden); browsers without scroll timelines simply
+     never show it. Reduced motion keeps it — it is scroll-linked state,
+     not motion. ---- */
+  .reading-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: var(--z-progress);
+    height: 2px;
+    width: 100%;
+    background: var(--color-brand);
+    transform-origin: left center;
+    transform: scaleX(0);
+    pointer-events: none;
+  }
+  @supports (animation-timeline: scroll()) {
+    .reading-progress {
+      animation: progress-grow linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+  @keyframes progress-grow {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes parallax-down {
+    from {
+      transform: translateY(-3%) scale(1.08);
+    }
+    to {
+      transform: translateY(3%) scale(1.08);
+    }
+  }
 }
 
-:root {
-  color-scheme: light;
+/* ---- Base ---- */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background-color: var(--color-surface);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* docs/19 §1.3 — 2px accent, 2px offset, applied to every interactive
+/* Brief §26 — grain overlay, desktop only (brief §20: expensive effects
+   are disabled on mobile). pointer-events: none so it never intercepts. */
+@media (min-width: 900px) and (prefers-reduced-transparency: no-preference) {
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-image: var(--grain);
+    opacity: 0.03;
+    mix-blend-mode: multiply;
+  }
+}
+@media print {
+  body::before {
+    display: none;
+  }
+}
+
+::selection {
+  background: var(--color-brand-wash);
+  color: var(--color-ink);
+}
+
+/* docs/19 §1.3 — 2px outline, 2px offset, applied to every interactive
    element. Never removed, never replaced by a colour change alone
    (A11Y-05). Prefer Tailwind's focus-visible:outline-* utilities directly
    in components; this is the fallback for anything that can't use them. */
 *:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-ink);
   outline-offset: 2px;
+}
+
+/* ---- Route transitions — brief §19, React <ViewTransition>. A quick
+   crossfade with a small rise for page content; a shared-element morph for
+   a story's image between card and article hero. ---- */
+::view-transition-old(.page-fade) {
+  animation: 120ms ease-in both vt-fade reverse;
+}
+::view-transition-new(.page-fade) {
+  animation:
+    220ms var(--ease-out-quart) 40ms both vt-fade,
+    420ms var(--ease-out-quart) both vt-rise;
+}
+::view-transition-group(.morph) {
+  animation-duration: 380ms;
+  animation-timing-function: var(--ease-in-out-quart);
+}
+@keyframes vt-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes vt-rise {
+  from {
+    transform: translateY(10px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* ---- Reduced motion — brief §17/§29. Every animation and transition
+   collapses; view transitions are disabled entirely. ---- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
 }

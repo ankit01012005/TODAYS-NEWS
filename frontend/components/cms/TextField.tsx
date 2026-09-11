@@ -24,7 +24,7 @@ export function TextField({
       <FieldLabel label={label} optional={optional} htmlFor={id} />
       <input
         id={id}
-        className={`h-10 w-full rounded-sm border px-space-3 text-body text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`h-10 w-full rounded-sm border bg-paper px-space-3 text-body text-ink transition-colors duration-(--duration-fast) hover:border-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-muted disabled:hover:border-rule-strong ${
           error ? "border-danger" : "border-rule-strong"
         }`}
         {...rest}
@@ -47,7 +47,7 @@ export function TextAreaField({
       <FieldLabel label={label} optional={optional} htmlFor={id} />
       <textarea
         id={id}
-        className={`w-full rounded-sm border px-space-3 py-space-2 text-body text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        className={`w-full rounded-sm border bg-paper px-space-3 py-space-2 text-body text-ink transition-colors duration-(--duration-fast) hover:border-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-muted disabled:hover:border-rule-strong ${
           error ? "border-danger" : "border-rule-strong"
         }`}
         {...rest}

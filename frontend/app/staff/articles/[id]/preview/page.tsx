@@ -66,7 +66,8 @@ export default async function ArticlePreviewPage({ params }: { params: Promise<{
                     src={mediaUrl(featuredAsset.storageKey)}
                     alt={revision.featuredImageAlt}
                     fill
-                    priority
+                    preload
+                    sizes="(min-width: 900px) 840px, 100vw"
                     className="object-cover"
                   />
                 </div>

@@ -20,7 +20,7 @@ export function Tabs({
   onChange: (key: string) => void;
 }) {
   return (
-    <div role="tablist" className="flex gap-x-space-5 overflow-x-auto border-b border-rule">
+    <div role="tablist" className="no-scrollbar flex gap-x-space-5 overflow-x-auto overflow-y-hidden border-b border-rule">
       {items.map((item) => {
         const isActive = item.key === active;
         return (
@@ -30,8 +30,8 @@ export function Tabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(item.key)}
-            className={`shrink-0 border-b-2 py-space-3 text-body-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-              isActive ? "border-ink text-ink" : "border-transparent text-ink-muted"
+            className={`nav-link shrink-0 py-space-3 text-body-sm transition-colors duration-(--duration-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+              isActive ? "font-medium text-ink" : "text-ink-muted hover:text-ink"
             }`}
           >
             {item.label} <span className="text-ink-faint">{item.count}</span>

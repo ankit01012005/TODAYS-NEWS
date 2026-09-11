@@ -213,8 +213,8 @@ automated tests.
 | BR-10 | Article state changes only follow the transitions defined in `04-article-lifecycle.md`; any other transition is refused | [PROPOSED] |
 | BR-11 | Rules are enforced on the server; the interface only reflects them | [PROPOSED] |
 | BR-12 | Deleting content is soft by default — content is retained and hidden, not erased | [PROPOSED] — see OQ-12 |
-| BR-13 | An admin may not approve or publish an article they wrote or last revised. A second admin must review it | **[CONFIRMED]** — resolved 2026-09-09; supersedes the OQ-29 recommendation. See `26-data-model-decisions.md` §2 |
-| BR-14 | The last remaining active admin cannot be deleted or demoted | [PROPOSED] |
+| BR-13 | ~~An admin may not approve or publish an article they wrote or last revised. A second admin must review it~~ | **[SUPERSEDED]** — resolved 2026-09-11. Moot: admin can no longer author or own an article at all (see `03-user-roles-and-permissions.md` §2.3), so self-approval is structurally impossible rather than merely forbidden. Originally confirmed 2026-09-09; see `26-data-model-decisions.md` §2 for that history |
+| BR-14 | Exactly one active admin exists at all times — never zero, never more than one | **[CONFIRMED]** — extended 2026-09-11 from "at least one" to "exactly one," now that a second admin is no longer needed to review a self-authored article (BR-13, superseded) |
 | BR-15 | A published article's web address does not change when it is edited | [PROPOSED] — see OQ-20 |
 | BR-16 | Editing a published article does not change what the public sees until an admin approves the change | [PROPOSED] — see OQ-08 |
 

@@ -6,8 +6,8 @@ import { assertOwnerOrAdmin } from "../articles/authorization";
 
 const EDITABLE_STATES: ArticleRevision["state"][] = ["DRAFT", "CHANGES_REQUESTED"];
 
-/// OQ-14's recommendation, absorbed: any editor or admin may create a
-/// source; only an admin may verify, edit or deactivate one.
+/// Editor creates a source; only admin may verify, edit or deactivate one
+/// (docs/03 §2.3) — admin cannot author, so it does not create sources.
 export function createSource(userId: string, name: string, description?: string): Promise<Source> {
   return prisma.source.create({ data: { name, description, createdByUserId: userId } });
 }

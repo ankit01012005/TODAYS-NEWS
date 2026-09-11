@@ -9,9 +9,9 @@ import { requireUuidParam } from "../common/middleware/uuid-param.middleware";
 import { requireCapability } from "../common/middleware/require-capability.middleware";
 import { CurrentUser } from "../common/current-user";
 
-/// Mounted at /sources in app.ts. OQ-14's recommendation: editors and
-/// admins may both create a source; only an admin may edit, verify or
-/// deactivate one (docs/03 §3.2).
+/// Mounted at /sources in app.ts. Editor creates a source; admin manages
+/// (edits, verifies, deactivates) one — admin cannot author, so it no
+/// longer creates sources either (docs/03 §2.3, §3.2).
 export const sourcesRouter = Router();
 
 sourcesRouter.post(
@@ -57,9 +57,9 @@ sourcesRouter.patch(
 );
 
 /// Article-scoped attach/detach — mounted bare (full paths), like
-/// articlesRouter/reviewsRouter. Ownership-checked in the service, not
-/// capability-gated: any editor who owns the article (or any admin) may
-/// manage its citations, same as saving content.
+/// articlesRouter/reviewsRouter. Gated the same as saving content
+/// (article:save — editor only, since admin cannot author, docs/03 §2.3);
+/// ownership is then checked in the service.
 export const articleSourcesRouter = Router();
 
 articleSourcesRouter.get(
@@ -72,6 +72,7 @@ articleSourcesRouter.get(
 
 articleSourcesRouter.post(
   "/articles/:id/sources",
+  requireCapability("article:save"),
   requireUuidParam("id"),
   validateBody(AttachSourceDto),
   async (req: Request<{ id: string }, unknown, AttachSourceDto>, res: Response) => {
@@ -82,6 +83,7 @@ articleSourcesRouter.post(
 
 articleSourcesRouter.delete(
   "/articles/:id/sources/:articleSourceId",
+  requireCapability("article:save"),
   requireUuidParam("id"),
   requireUuidParam("articleSourceId"),
   async (req: Request<{ id: string; articleSourceId: string }>, res: Response) => {

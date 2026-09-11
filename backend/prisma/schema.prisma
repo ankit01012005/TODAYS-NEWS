@@ -83,9 +83,11 @@ enum ReviewDecisionType {
 
 /// USR-02 one role per user. USR-03 deactivated, never deleted — status is
 /// the soft-delete mechanism for this entity, so no separate deletedAt.
-/// BR-14 (at least one active admin must always exist) cannot be expressed
-/// as a column-level constraint; it is enforced by a constraint trigger
-/// (see migration.sql) as well as in the application layer.
+/// BR-14 (exactly one active admin must exist at all times — never zero,
+/// never more than one) cannot be expressed as a column-level constraint;
+/// it is enforced by a pair of constraint triggers (see migration.sql and
+/// 20260911020000_admin_review_only_and_single_admin) as well as in the
+/// application layer.
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique
