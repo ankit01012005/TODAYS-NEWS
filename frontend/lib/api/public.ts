@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { apiBaseUrl } from "./config";
 import {
   PublicArticleListResult,
@@ -12,6 +13,11 @@ import {
 /// request shape any anonymous reader's browser would get if it could
 /// reach the API directly (it can't; docs/23 §11.4).
 async function publicFetch<T>(path: string): Promise<T | null> {
+  // Public API data must be loaded only after a real request exists. This
+  // keeps `next build` independent of backend availability while preserving
+  // the explicit 60-second data cache below at runtime.
+  await connection();
+
   const res = await fetch(`${apiBaseUrl()}${path}`, {
     // Public pages are cache-first (docs/23 §16) — a later phase wires up
     // real ISR revalidation tags on publish; for now, a short default
