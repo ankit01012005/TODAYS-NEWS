@@ -10,8 +10,10 @@ import { BadRequestError } from "../common/http-errors";
 /// Shape mirrors frontend/lib/api/body-blocks.ts (what the editor writes)
 /// and frontend/components/public/ArticleBody.tsx (what the site reads).
 /// An image block may be *empty* (mediaId "" and url "") so an editor can
-/// save a draft with a placeholder; a non-empty one must point at this
-/// server's own media path. Completeness for submission is BR-09's job.
+/// save a draft with a placeholder; a non-empty one names a media asset by
+/// id, and its `url` is REPLACED server-side from that asset's stored URL
+/// (resolveImageUrls below) — the client's value is never persisted.
+/// Completeness for submission is BR-09's job.
 
 const KNOWN_BLOCK_TYPES = new Set(["paragraph", "heading", "image", "quote", "list", "divider"]);
 
@@ -23,14 +25,13 @@ const MAX_TEXT_CHARS = 200_000; // across the whole body
 const MAX_STRING_FIELD = 2_000; // alt/credit/caption/attribution
 const MAX_HREF = 2_048;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MEDIA_URL_PREFIX = "/uploads/";
 
 interface InlineSpan {
   text?: unknown;
   marks?: unknown;
 }
 
-interface Block {
+export interface Block {
   type?: unknown;
   content?: unknown;
   items?: unknown;
@@ -151,9 +152,10 @@ export function assertValidBodyShape(body: unknown): asserts body is Block[] {
         const isEmptyPlaceholder = mediaId === "" && url === "";
         if (!isEmptyPlaceholder) {
           if (!UUID_RE.test(mediaId)) fail(`${where}: image "mediaId" must be a media asset id`);
-          if (!url.startsWith(MEDIA_URL_PREFIX) || url.includes("..") || !isSafeHref(url)) {
-            fail(`${where}: image "url" must be a path under ${MEDIA_URL_PREFIX}`);
-          }
+          // Only a sanity bound here — the real address comes from the
+          // media asset row (resolveImageUrls), so a forged url can't
+          // reach the page even if it passed.
+          if (url.length > MAX_HREF) fail(`${where}: image "url" is too long`);
         }
         if ((block.alt as string).length > MAX_STRING_FIELD) fail(`${where}: "alt" is too long`);
         assertOptionalString(block.credit, "credit", where);
@@ -163,6 +165,32 @@ export function assertValidBodyShape(body: unknown): asserts body is Block[] {
       case "divider":
         break;
     }
+  });
+}
+
+/// The media asset ids every non-empty image block names, de-duplicated —
+/// what the caller must look up before resolveImageUrls can run.
+export function collectImageMediaIds(body: Block[]): string[] {
+  const ids = new Set<string>();
+  for (const block of body) {
+    if (block.type === "image" && typeof block.mediaId === "string" && block.mediaId !== "") {
+      ids.add(block.mediaId);
+    }
+  }
+  return [...ids];
+}
+
+/// Rewrites every non-empty image block's `url` from the stored asset it
+/// names. Refuses (400) when a block names an asset that doesn't exist or
+/// has been soft-deleted — the editor's picker only offers live assets, so
+/// that only happens with a stale form or a hand-crafted request. Returns
+/// a new array; never mutates the caller's blocks.
+export function resolveImageUrls(body: Block[], urlByMediaId: ReadonlyMap<string, string>): Block[] {
+  return body.map((block, index) => {
+    if (block.type !== "image" || block.mediaId === "") return block;
+    const url = urlByMediaId.get(block.mediaId as string);
+    if (!url) fail(`body block ${index + 1}: image "mediaId" does not name an available media asset`);
+    return { ...block, url };
   });
 }
 

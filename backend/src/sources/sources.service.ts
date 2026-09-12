@@ -1,4 +1,4 @@
-import { ArticleRevision, Source } from "@prisma/client";
+import { ArticleRevision, Prisma, Source } from "@prisma/client";
 import { prisma } from "../db";
 import { AuthenticatedUser } from "../common/authenticated-user";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../common/http-errors";
@@ -73,12 +73,14 @@ export async function deactivateSource(id: string): Promise<Source> {
   }
 }
 
-async function loadEditableOpenRevision(user: AuthenticatedUser, articleId: string) {
-  const article = await prisma.article.findUnique({ where: { id: articleId } });
+type TxClient = Prisma.TransactionClient;
+
+async function loadEditableOpenRevision(tx: TxClient, user: AuthenticatedUser, articleId: string) {
+  const article = await tx.article.findUnique({ where: { id: articleId } });
   if (!article || article.deletedAt) throw new NotFoundError("No such article");
   assertOwnerOrAdmin(user, article);
 
-  const revision = await prisma.articleRevision.findFirst({ where: { articleId, openMarker: true } });
+  const revision = await tx.articleRevision.findFirst({ where: { articleId, openMarker: true } });
   if (!revision) throw new ConflictError("This article has no open revision");
   if (!EDITABLE_STATES.includes(revision.state)) {
     throw new ForbiddenError(`Cannot edit sources while the revision is in state ${revision.state}`);
@@ -86,26 +88,49 @@ async function loadEditableOpenRevision(user: AuthenticatedUser, articleId: stri
   return revision;
 }
 
+/// docs/27 A3 — a citation change is a change to the revision. The same
+/// guarded write saving uses (WHERE version = what the caller saw) makes a
+/// request that lands after the story entered review fail cleanly, and
+/// bumps the revision's version (database trigger) so the admin never
+/// reviews a citation list that changed underneath them. The write itself
+/// is a no-op column touch — the trigger does the actual bump.
+async function bumpRevisionGuarded(tx: TxClient, revision: ArticleRevision, expectedVersion: number): Promise<number> {
+  const result = await tx.articleRevision.updateMany({
+    where: { id: revision.id, version: expectedVersion },
+    data: { createdByUserId: revision.createdByUserId },
+  });
+  if (result.count === 0) {
+    throw new ConflictError("This article has changed since you last loaded it. Please refresh and try again.");
+  }
+  const bumped = await tx.articleRevision.findUniqueOrThrow({ where: { id: revision.id }, select: { version: true } });
+  return bumped.version;
+}
+
 export async function attachSource(
   user: AuthenticatedUser,
   articleId: string,
-  input: { sourceId: string; position: number; isPublic?: boolean; note?: string },
+  input: { version: number; sourceId: string; position: number; isPublic?: boolean; note?: string },
 ) {
-  const revision = await loadEditableOpenRevision(user, articleId);
-  const source = await prisma.source.findUnique({ where: { id: input.sourceId } });
-  if (!source || source.deletedAt) throw new NotFoundError("No such source");
+  return prisma.$transaction(async (tx) => {
+    const revision = await loadEditableOpenRevision(tx, user, articleId);
+    const source = await tx.source.findUnique({ where: { id: input.sourceId } });
+    if (!source || source.deletedAt) throw new NotFoundError("No such source");
 
-  // Same shape as listAttachedSources — the picker renders the source's
-  // name straight from the response, so the relation must be included.
-  return prisma.articleSource.create({
-    data: {
-      articleRevisionId: revision.id,
-      sourceId: input.sourceId,
-      position: input.position,
-      isPublic: input.isPublic ?? true,
-      note: input.note,
-    },
-    include: { source: true },
+    const revisionVersion = await bumpRevisionGuarded(tx, revision, input.version);
+
+    // Same shape as listAttachedSources — the picker renders the source's
+    // name straight from the response, so the relation must be included.
+    const attached = await tx.articleSource.create({
+      data: {
+        articleRevisionId: revision.id,
+        sourceId: input.sourceId,
+        position: input.position,
+        isPublic: input.isPublic ?? true,
+        note: input.note,
+      },
+      include: { source: true },
+    });
+    return { ...attached, revisionVersion };
   });
 }
 
@@ -123,12 +148,21 @@ export async function listAttachedSources(user: AuthenticatedUser, articleId: st
   });
 }
 
-export async function detachSource(user: AuthenticatedUser, articleId: string, articleSourceId: string): Promise<void> {
-  const revision = await loadEditableOpenRevision(user, articleId);
-  const result = await prisma.articleSource.deleteMany({
-    where: { id: articleSourceId, articleRevisionId: revision.id },
+export async function detachSource(
+  user: AuthenticatedUser,
+  articleId: string,
+  articleSourceId: string,
+  version: number,
+): Promise<{ revisionVersion: number }> {
+  return prisma.$transaction(async (tx) => {
+    const revision = await loadEditableOpenRevision(tx, user, articleId);
+    const revisionVersion = await bumpRevisionGuarded(tx, revision, version);
+    const result = await tx.articleSource.deleteMany({
+      where: { id: articleSourceId, articleRevisionId: revision.id },
+    });
+    if (result.count === 0) throw new NotFoundError("No such source attachment");
+    return { revisionVersion };
   });
-  if (result.count === 0) throw new NotFoundError("No such source attachment");
 }
 
 function remapNotFound(error: unknown): unknown {

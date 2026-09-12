@@ -8,6 +8,7 @@ import { validateBody } from "../common/middleware/validate-body.middleware";
 import { requireUuidParam } from "../common/middleware/uuid-param.middleware";
 import { requireCapability } from "../common/middleware/require-capability.middleware";
 import { CurrentUser } from "../common/current-user";
+import { BadRequestError } from "../common/http-errors";
 
 /// Mounted at /sources in app.ts. Editor creates a source; admin manages
 /// (edits, verifies, deactivates) one — admin cannot author, so it no
@@ -86,13 +87,25 @@ articleSourcesRouter.post(
   },
 );
 
+/// DELETE carries the revision version as a query parameter rather than a
+/// body — intermediaries are allowed to drop a DELETE body, a query string
+/// always arrives.
 articleSourcesRouter.delete(
   "/articles/:id/sources/:articleSourceId",
   requireCapability("article:save"),
   requireUuidParam("id"),
   requireUuidParam("articleSourceId"),
   async (req: Request<{ id: string; articleSourceId: string }>, res: Response) => {
-    await sourcesService.detachSource(CurrentUser(req), req.params.id, req.params.articleSourceId);
-    res.status(204).end();
+    const version = Number(req.query.version);
+    if (!Number.isInteger(version) || version < 0) {
+      throw new BadRequestError("version query parameter is required");
+    }
+    const result = await sourcesService.detachSource(
+      CurrentUser(req),
+      req.params.id,
+      req.params.articleSourceId,
+      version,
+    );
+    res.status(200).json(result);
   },
 );

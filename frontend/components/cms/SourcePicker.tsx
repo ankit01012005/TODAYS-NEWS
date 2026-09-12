@@ -15,16 +15,25 @@ import { TextField } from "./TextField";
 /// (HTML forbids nesting; React refuses to hydrate it) — the attach action
 /// is a plain button, with Enter in the note field wired to the same
 /// handler so it still behaves like a small form.
+///
+/// A citation change is a change to the revision (docs/27 A3): every call
+/// carries the version the editor last saw and hands the bumped one back
+/// through `onVersionChange`, so the next Save doesn't trip the stale
+/// check on its own earlier attach.
 export function SourcePicker({
   articleId,
   attached,
   available,
   disabled,
+  version,
+  onVersionChange,
 }: {
   articleId: string;
   attached: ArticleSourceView[];
   available: SourceView[];
   disabled?: boolean;
+  version: number;
+  onVersionChange: (version: number) => void;
 }) {
   const [items, setItems] = useState(attached);
   const [selectedSourceId, setSelectedSourceId] = useState("");
@@ -44,13 +53,20 @@ export function SourcePicker({
       const res = await clientFetch(`/articles/${articleId}/sources`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sourceId: selectedSourceId, position: items.length, isPublic, note: note || undefined }),
+        body: JSON.stringify({
+          version,
+          sourceId: selectedSourceId,
+          position: items.length,
+          isPublic,
+          note: note || undefined,
+        }),
       });
       if (!res.ok) {
         setError(await readErrorMessage(res));
         return;
       }
-      const created = (await res.json()) as ArticleSourceView;
+      const created = (await res.json()) as ArticleSourceView & { revisionVersion: number };
+      onVersionChange(created.revisionVersion);
       setItems([...items, created]);
       setSelectedSourceId("");
       setNote("");
@@ -64,11 +80,16 @@ export function SourcePicker({
     setError(null);
     setBusy(true);
     try {
-      const res = await clientFetch(`/articles/${articleId}/sources/${articleSourceId}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 204) {
+      const res = await clientFetch(
+        `/articles/${articleId}/sources/${articleSourceId}?version=${encodeURIComponent(version)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
         setError(await readErrorMessage(res));
         return;
       }
+      const result = (await res.json()) as { revisionVersion: number };
+      onVersionChange(result.revisionVersion);
       setItems(items.filter((i) => i.id !== articleSourceId));
     } finally {
       setBusy(false);

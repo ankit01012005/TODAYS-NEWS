@@ -8,6 +8,10 @@ import {
   PublicSocialPick,
 } from "./public-types";
 
+/// The one cache tag every public read carries — what the API asks
+/// /api/revalidate to drop after a publish or withdrawal.
+export const PUBLIC_CACHE_TAG = "public";
+
 /// Server components call these directly at render/revalidation time
 /// (docs/23 §4.4 "public reads" row) — no session, no cookie, the same
 /// request shape any anonymous reader's browser would get if it could
@@ -19,10 +23,11 @@ async function publicFetch<T>(path: string): Promise<T | null> {
   await connection();
 
   const res = await fetch(`${apiBaseUrl()}${path}`, {
-    // Public pages are cache-first (docs/23 §16) — a later phase wires up
-    // real ISR revalidation tags on publish; for now, a short default
-    // keeps the homepage from going stale for long without one.
-    next: { revalidate: 60 },
+    // Public pages are cache-first (docs/23 §16). The API purges the
+    // "public" tag through /api/revalidate the moment a story is
+    // published, corrected or withdrawn (docs/27 B3); the 60 s window is
+    // only the safety net if that call ever fails.
+    next: { revalidate: 60, tags: [PUBLIC_CACHE_TAG] },
   });
 
   if (res.status === 404) {

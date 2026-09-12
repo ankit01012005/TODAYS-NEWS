@@ -4,32 +4,28 @@
   "private": true,
   "description": "Today_news API — Express backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
     "dev": "ts-node src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
     "prisma:validate": "prisma validate",
     "prisma:format": "prisma format",
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:migrate:diff:init": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
-    "prisma:seed": "ts-node prisma/seed.ts",
-    "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "db:start": "node scripts/dev-db.cjs start",
-    "db:stop": "node scripts/dev-db.cjs stop",
-    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs",
-    "db:seed-demo-content": "node scripts/seed-demo-content.cjs"
-  },
-  "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
     "argon2": "0.45.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
+    "cloudinary": "2.11.0",
     "cookie-parser": "1.4.7",
     "cors": "2.8.6",
     "express": "5.2.1",
@@ -45,7 +41,6 @@
     "@types/jest": "30.0.0",
     "@types/multer": "2.2.0",
     "@types/node": "22.10.2",
-    "embedded-postgres": "^18.4.0-beta.17",
     "jest": "30.5.1",
     "prisma": "6.19.3",
     "ts-jest": "29.4.12",

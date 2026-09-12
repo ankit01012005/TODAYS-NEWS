@@ -18,6 +18,11 @@ export interface RevisionView {
   id: string;
   articleId: string;
   state: RevisionState;
+  /// The section and byline THIS revision proposes — what the editor
+  /// edits and what an admin reviews. Only becomes public on publish
+  /// (docs/27 A1).
+  categoryId: string;
+  bylineOverride: string | null;
   headline: string | null;
   summary: string | null;
   body: unknown;
@@ -39,6 +44,8 @@ export interface RevisionView {
 export interface ArticleDetailView {
   id: string;
   slug: string;
+  /// The PUBLISHED section and byline (backend article.view.ts). The
+  /// editor works on the open revision's own copy — see RevisionView.
   categoryId: string;
   ownerId: string;
   bylineOverride: string | null;
@@ -115,6 +122,11 @@ export interface ArticleSourceView {
 export interface MediaAssetView {
   id: string;
   storageKey: string;
+  /// Public CDN URL fixed at upload time — the only image address the
+  /// CMS ever renders or writes into a body block.
+  url: string;
+  width: number | null;
+  height: number | null;
   originalFilename: string | null;
   mimeType: string;
   sizeBytes: number;

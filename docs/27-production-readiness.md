@@ -20,7 +20,7 @@ it**, with the PR number.
 
 ## A. Launch blockers — correctness
 
-- [ ] **A1 [REQUIRED] Public metadata can bypass review.** `Article.categoryId`
+- [x] **A1 [REQUIRED] Public metadata can bypass review.** *(closed: chore-production-hardening — `categoryId`/`bylineOverride` moved onto `ArticleRevision`; `Article`'s copies are written only by the publish transition.)* `Article.categoryId`
   and `Article.bylineOverride` are written directly by
   `articles.service.ts saveArticleContent`, so saving a correction changes the
   live story's section (and therefore its URL) and public byline while the
@@ -28,34 +28,34 @@ it**, with the PR number.
   (or freeze them on `Article` until approval) so what readers see only
   changes on publish. *Verified 2026-09-11.*
 
-- [ ] **A2 [REQUIRED] Save is not atomic.** In the same function the
+- [x] **A2 [REQUIRED] Save is not atomic.** *(closed: chore-production-hardening — one `$transaction`, one guarded `updateMany`, rollback on version mismatch.)* In the same function the
   category/byline updates run outside any transaction and *before* the
   `result.count === 0` version check — a stale editor receives a 409 yet has
   already changed those fields. Wrap the revision update, the version check
   and any article-level writes in one `prisma.$transaction`, and abort the
   whole thing on a version mismatch. *Verified 2026-09-11.*
 
-- [ ] **A3 [REQUIRED] Source attach/detach ignores the revision version.**
+- [x] **A3 [REQUIRED] Source attach/detach ignores the revision version.** *(closed: chore-production-hardening — `version` required on attach (body) and detach (query); guarded update bumps the revision version and returns it.)*
   `sources.service.ts` checks the open revision's state but writes without
   its version, so a request in flight can land after the article enters
   review. Require `version` on attach/detach, apply it with the same
   guarded-update pattern as saving, and bump the revision version so the
   admin never reviews a citation list that changed underneath them.
 
-- [ ] **A4 [REQUIRED] Password-reset consumption is not atomic, and password
-  changes keep other sessions alive.** `auth.service.ts setPasswordWithToken`
+- [x] **A4 [REQUIRED] Password-reset consumption is not atomic, and password
+  changes keep other sessions alive.** *(closed: chore-production-hardening — conditional `updateMany` consumes the token; every other session is revoked on any password set/change.)* `auth.service.ts setPasswordWithToken`
   reads then updates; two simultaneous requests can both pass. Consume the
   token with a conditional `updateMany` (hash matches AND not expired) and
   treat `count === 0` as invalid. On any password set or change, revoke every
   other session for that user (SEC-05's spirit).
 
-- [ ] **A5 [REQUIRED] Post-login redirect is an open redirect.**
+- [x] **A5 [REQUIRED] Post-login redirect is an open redirect.** *(closed: chore-production-hardening — `safeStaffPath()` accepts only `/staff…` paths.)*
   `SignInForm.tsx` pushes `searchParams.get("from")` unvalidated. Accept only
   same-origin paths that start with `/staff/` (reject schemes, `//`,
   backslashes, and anything else); fall back to `/staff`. *Verified
   2026-09-11.*
 
-- [ ] **A6 [REQUIRED] The frontend build depends on a live API.** Every
+- [x] **A6 [REQUIRED] The frontend build depends on a live API.** *(closed: `caa1944` — public reads wait for `connection()`; build succeeds with the API down.)* Every
   prerendered page (`/`, `/_not-found`, the static pages via the masthead's
   category fetch) calls the API at build time; if it is unreachable, `next
   build` fails, so an API outage blocks a frontend deploy. Optional content
@@ -66,7 +66,7 @@ it**, with the PR number.
 
 ## B. Launch blockers — infrastructure
 
-- [ ] **B1 [REQUIRED] Object storage for media.** `media/storage.ts` is a
+- [x] **B1 [REQUIRED] Object storage for media.** *(closed: chore-production-hardening — Cloudinary adapter; CDN URL stored on `MediaAsset.url`; body image URLs resolved server-side; `/uploads` route and rewrite removed.)* `media/storage.ts` is a
   local-disk adapter: uploads vanish on redeploy, a second instance can't see
   them, rolling deploys serve broken images, and there is no backup. Ship an
   S3-compatible adapter behind the same interface, return CDN URLs from
@@ -79,7 +79,7 @@ it**, with the PR number.
   backups with point-in-time recovery, a *tested* restore, and post-deploy
   smoke checks against `/health`, `/ready` and one public page.
 
-- [ ] **B3 [REQUIRED] Publish-time cache invalidation.** Public pages
+- [x] **B3 [REQUIRED] Publish-time cache invalidation.** *(closed: chore-production-hardening — public fetches tagged `public`; API calls `POST /api/revalidate` with `REVALIDATE_SECRET` after publish/unpublish commits; `expire: 0`.)* Public pages
   revalidate on a fixed 60 s (`frontend/lib/api/public.ts`); publishing,
   correcting or withdrawing does not invalidate the story, homepage, section,
   sitemap or feed, so a withdrawn story can stay visible for a minute (longer

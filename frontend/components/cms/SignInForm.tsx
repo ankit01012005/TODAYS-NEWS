@@ -8,6 +8,17 @@ import { TextField } from "./TextField";
 import { Button } from "./Button";
 import { Alert } from "./Alert";
 
+/// docs/27 A5 — the post-login destination comes from the URL, so it must
+/// be a path INSIDE the CMS and nothing else: no scheme, no host, no
+/// protocol-relative "//", no backslash tricks. Anything that doesn't
+/// match lands on the dashboard.
+export function safeStaffPath(from: string | null): string {
+  if (!from || !from.startsWith("/staff")) return "/staff";
+  if (from.startsWith("//") || /[\\\s]/.test(from)) return "/staff";
+  if (from !== "/staff" && !from.startsWith("/staff/") && !from.startsWith("/staff?")) return "/staff";
+  return from;
+}
+
 /// docs/12 PG-EDT-01. P2-11: one generic message for every failure cause
 /// (wrong password, unknown account, deactivated account) — the backend
 /// already enforces this (auth.service.ts's signIn); this form just
@@ -35,8 +46,7 @@ export function SignInForm() {
         setError(await readErrorMessage(res));
         return;
       }
-      const redirectTo = searchParams.get("from") ?? "/staff";
-      router.push(redirectTo);
+      router.push(safeStaffPath(searchParams.get("from")));
       router.refresh();
     } finally {
       setSubmitting(false);

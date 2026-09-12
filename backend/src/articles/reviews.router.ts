@@ -141,13 +141,15 @@ reviewsRouter.get("/admin/review-queue", requireCapability("review:approve"), as
     where: { state: "IN_REVIEW" },
     orderBy: { submittedAt: "asc" },
     include: {
+      // The section shown is the one THIS revision proposes (docs/27 A1)
+      // — what approving it would publish — not the article's current one.
+      category: { select: { id: true, name: true, slug: true } },
       article: {
         select: {
           id: true,
           slug: true,
           ownerId: true,
           owner: { select: { displayName: true } },
-          category: { select: { id: true, name: true, slug: true } },
         },
       },
     },

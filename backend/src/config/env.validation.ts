@@ -20,11 +20,23 @@ export interface AppEnv {
   SMTP_URL: string | null;
   MAIL_FROM: string | null;
   /// The public origin of the Next.js app, used to build the links inside
-  /// those emails (…/staff/accept-invitation?token=…).
+  /// those emails (…/staff/accept-invitation?token=…) and to reach its
+  /// cache-revalidation endpoint after a publish.
   APP_BASE_URL: string;
+  /// Shared secret the Next.js app's /api/revalidate route checks before
+  /// purging its public cache. Null means "don't call it" — acceptable in
+  /// development, refused in production (a withdrawn story must not stay
+  /// visible until a timer expires; docs/27 B3).
+  REVALIDATE_SECRET: string | null;
+  /// Media storage (docs/27 B1). One URL, in the form Cloudinary's
+  /// dashboard shows it: cloudinary://API_KEY:API_SECRET@CLOUD_NAME.
+  CLOUDINARY_URL: string;
+  /// Folder every upload lands in, so one Cloudinary account can host
+  /// several environments (today-news/production, today-news/staging, …).
+  CLOUDINARY_FOLDER: string;
 }
 
-const REQUIRED_KEYS = ["DATABASE_URL"] as const;
+const REQUIRED_KEYS = ["DATABASE_URL", "CLOUDINARY_URL"] as const;
 
 export function validateEnv(config: Record<string, unknown>): AppEnv {
   for (const key of REQUIRED_KEYS) {
@@ -97,6 +109,23 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     throw new Error("APP_BASE_URL must be https in production (it goes into emailed links)");
   }
 
+  const revalidateSecret = config.REVALIDATE_SECRET ? String(config.REVALIDATE_SECRET) : null;
+  if (nodeEnv === "production" && !revalidateSecret) {
+    throw new Error("REVALIDATE_SECRET is required in production (publish-time cache invalidation)");
+  }
+  if (revalidateSecret !== null && revalidateSecret.length < 32) {
+    throw new Error("REVALIDATE_SECRET must be at least 32 characters");
+  }
+
+  const cloudinaryUrl = String(config.CLOUDINARY_URL);
+  if (!/^cloudinary:\/\/[^:@\s]+:[^:@\s]+@[^\s/]+$/.test(cloudinaryUrl)) {
+    throw new Error("CLOUDINARY_URL must look like cloudinary://API_KEY:API_SECRET@CLOUD_NAME");
+  }
+  const cloudinaryFolder = String(config.CLOUDINARY_FOLDER ?? "today-news").replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(cloudinaryFolder)) {
+    throw new Error(`Invalid CLOUDINARY_FOLDER: ${String(config.CLOUDINARY_FOLDER)}`);
+  }
+
   return {
     DATABASE_URL: config.DATABASE_URL as string,
     NODE_ENV: nodeEnv as AppEnv["NODE_ENV"],
@@ -109,5 +138,8 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     SMTP_URL: smtpUrl,
     MAIL_FROM: mailFrom,
     APP_BASE_URL: parsedAppBaseUrl.origin,
+    REVALIDATE_SECRET: revalidateSecret,
+    CLOUDINARY_URL: cloudinaryUrl,
+    CLOUDINARY_FOLDER: cloudinaryFolder,
   };
 }

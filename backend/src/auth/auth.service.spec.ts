@@ -2,7 +2,7 @@ import * as argon2 from "argon2";
 
 jest.mock("../db", () => ({
   prisma: {
-    user: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn() },
+    user: { findUnique: jest.fn(), findUniqueOrThrow: jest.fn(), update: jest.fn(), updateMany: jest.fn() },
     session: { create: jest.fn(), updateMany: jest.fn() },
   },
 }));
@@ -27,7 +27,7 @@ import * as auth from "./auth.service";
 import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 
 const mockedPrisma = prisma as unknown as {
-  user: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock; update: jest.Mock };
+  user: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock; update: jest.Mock; updateMany: jest.Mock };
   session: { create: jest.Mock; updateMany: jest.Mock };
 };
 
@@ -112,17 +112,46 @@ describe("auth.service", () => {
     expect(mockedPrisma.user.update).not.toHaveBeenCalled();
   });
 
-  it("refuses an expired token even if it otherwise matches a user", async () => {
-    mockedPrisma.user.findUnique.mockResolvedValue({
-      id: "u1",
-      passwordResetTokenHash: "irrelevant-because-mocked-lookup",
-      passwordResetExpiresAt: new Date(Date.now() - 1000),
-    });
+  it("refuses an expired or already-spent token even if the lookup found a user — docs/27 A4", async () => {
+    // The lookup finds the row, but the guarded UPDATE (hash still present
+    // AND unexpired) matches nothing — the second of two racing requests,
+    // or an expired link, both land here.
+    mockedPrisma.user.findUnique.mockResolvedValue({ id: "u1" });
+    mockedPrisma.user.updateMany.mockResolvedValue({ count: 0 });
 
     await expect(auth.setPasswordWithToken("some-token", "a-new-password")).rejects.toThrow(
       UnauthorizedError,
     );
-    expect(mockedPrisma.user.update).not.toHaveBeenCalled();
+    expect(mockedPrisma.user.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: "u1",
+          passwordResetExpiresAt: { gt: expect.any(Date) },
+          status: "ACTIVE",
+        }),
+      }),
+    );
+    expect(mockedPrisma.session.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("consumes the token in one conditional write and revokes every session — docs/27 A4", async () => {
+    mockedPrisma.user.findUnique.mockResolvedValue({ id: "u1" });
+    mockedPrisma.user.updateMany.mockResolvedValue({ count: 1 });
+    mockedPrisma.session.updateMany.mockResolvedValue({ count: 2 });
+
+    await auth.setPasswordWithToken("some-token", "a-new-password-that-is-long");
+
+    const write = mockedPrisma.user.updateMany.mock.calls[0][0];
+    expect(write.data).toEqual(
+      expect.objectContaining({ passwordResetTokenHash: null, passwordResetExpiresAt: null }),
+    );
+    expect(write.data.passwordHash).toEqual(expect.any(String));
+    expect(mockedPrisma.session.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ userId: "u1", revokedAt: null }),
+        data: { revokedAt: expect.any(Date) },
+      }),
+    );
   });
 
   describe("updateProfile — docs/09 E-10", () => {
@@ -175,6 +204,31 @@ describe("auth.service", () => {
         where: { id: "u1" },
         data: { passwordHash: expect.any(String), passwordSetAt: expect.any(Date) },
       });
+    });
+
+    it("a password change revokes every OTHER session but keeps the caller's own — docs/27 A4", async () => {
+      mockedPrisma.user.findUniqueOrThrow.mockResolvedValue({ id: "u1", passwordHash: knownPasswordHash });
+      mockedPrisma.user.update.mockResolvedValue({ id: "u1", email: "e@test.local", displayName: "E", role: "EDITOR" });
+      mockedPrisma.session.updateMany.mockResolvedValue({ count: 1 });
+
+      await auth.updateProfile(
+        "u1",
+        { currentPassword: KNOWN_PASSWORD, newPassword: "a new password 123" },
+        "raw-session-token-of-the-caller",
+      );
+
+      const where = mockedPrisma.session.updateMany.mock.calls[0][0].where;
+      expect(where).toEqual(expect.objectContaining({ userId: "u1", revokedAt: null }));
+      expect(where.NOT.tokenHash).toEqual(expect.any(String));
+      expect(where.NOT.tokenHash).not.toBe("raw-session-token-of-the-caller");
+    });
+
+    it("a display-name-only change touches no sessions", async () => {
+      mockedPrisma.user.update.mockResolvedValue({ id: "u1", email: "e@test.local", displayName: "N", role: "EDITOR" });
+
+      await auth.updateProfile("u1", { displayName: "N" }, "raw-session-token");
+
+      expect(mockedPrisma.session.updateMany).not.toHaveBeenCalled();
     });
   });
 

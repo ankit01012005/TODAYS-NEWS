@@ -9,3 +9,7 @@ build/
 *.log
 next-env.d.ts
 *.tsbuildinfo
+
+# Written by `next dev` on every start; not part of the project.
+AGENTS.md
+CLAUDE.md

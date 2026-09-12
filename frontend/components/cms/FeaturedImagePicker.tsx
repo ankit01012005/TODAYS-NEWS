@@ -3,7 +3,6 @@
 import { ChangeEvent, useRef, useState } from "react";
 import Image from "next/image";
 import { MediaAssetView } from "@/lib/api/cms-types";
-import { mediaUrl } from "@/lib/api/media-url";
 import { uploadMediaFile } from "@/lib/api/upload-media";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
@@ -54,7 +53,7 @@ export function FeaturedImagePicker({
     <div className="space-y-space-2">
       {selected ? (
         <div className="relative h-48 w-full overflow-hidden rounded-sm bg-surface-sunken">
-          <Image src={mediaUrl(selected.storageKey)} alt={value.featuredImageAlt ?? ""} fill className="object-cover" />
+          <Image src={selected.url} alt={value.featuredImageAlt ?? ""} fill className="object-cover" />
         </div>
       ) : null}
       <div className="flex items-center gap-x-space-3">

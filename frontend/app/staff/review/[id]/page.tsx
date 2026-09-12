@@ -8,7 +8,6 @@ import { FeedbackPanel } from "@/components/cms/FeedbackPanel";
 import { ArticleBody } from "@/components/public/ArticleBody";
 import { requireRole } from "@/lib/api/session";
 import { getArticle, getArticleSources, getRevisionHistory, listCategoriesForStaff, listMedia } from "@/lib/api/cms";
-import { mediaUrl } from "@/lib/api/media-url";
 import { formatDateTime } from "@/lib/format-date";
 
 export const metadata: Metadata = { title: "Review article — Today News", robots: { index: false } };
@@ -37,7 +36,11 @@ export default async function ArticleReviewPage({ params }: { params: Promise<{ 
     getRevisionHistory(id),
   ]);
 
-  const category = categories.find((c) => c.id === article.categoryId) ?? { name: "Uncategorized", slug: "" };
+  // What the admin is approving includes the section (docs/27 A1) — show
+  // the revision's, and flag when it differs from what is live today.
+  const category = categories.find((c) => c.id === revision.categoryId) ?? { name: "Uncategorized", slug: "" };
+  const liveCategory = categories.find((c) => c.id === article.categoryId) ?? null;
+  const sectionChanges = article.publicationStatus === "LIVE" && revision.categoryId !== article.categoryId;
   const featuredAsset = revision.featuredImageId ? (media.find((m) => m.id === revision.featuredImageId) ?? null) : null;
   const canApprove = article.ownerId !== user.id && revision.createdByUserId !== user.id;
 
@@ -61,7 +64,14 @@ export default async function ArticleReviewPage({ params }: { params: Promise<{ 
         <FeedbackPanel history={history} />
 
         <article className="mt-space-6 rounded-md border border-rule bg-paper p-space-5">
-          <p className="text-label text-ink-muted">{category.name}</p>
+          <p className="text-label text-ink-muted">
+            {category.name}
+            {sectionChanges ? (
+              <span className="ml-space-2 rounded-sm bg-attention-wash px-space-2 py-0.5 text-meta text-ink">
+                moves from {liveCategory?.name ?? "its current section"} on publish
+              </span>
+            ) : null}
+          </p>
           <h2 className="mt-space-2 text-heading-1 text-ink">{revision.headline || "Untitled"}</h2>
           <p className="mt-space-3 text-standfirst text-ink-secondary">{revision.summary}</p>
 
@@ -69,7 +79,7 @@ export default async function ArticleReviewPage({ params }: { params: Promise<{ 
             <figure className="mt-space-5">
               <div className="relative aspect-3/2 bg-surface-sunken">
                 <Image
-                  src={mediaUrl(featuredAsset.storageKey)}
+                  src={featuredAsset.url}
                   alt={revision.featuredImageAlt ?? ""}
                   fill
                   className="object-cover"

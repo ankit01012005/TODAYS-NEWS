@@ -7,7 +7,7 @@ import { validateBody } from "../common/middleware/validate-body.middleware";
 import { requireUuidParam } from "../common/middleware/uuid-param.middleware";
 import { requireCapability } from "../common/middleware/require-capability.middleware";
 import { CurrentUser } from "../common/current-user";
-import { toArticleDetailView } from "./article.view";
+import { toArticleDetailView, toRevisionView } from "./article.view";
 
 /// Mounted in app.ts after sessionAuth. CRUD only — no transitions here
 /// (docs/23 §8.3: ARTICLES "owns no transitions"; that's the Reviews router).
@@ -53,7 +53,7 @@ articlesRouter.patch(
   async (req: Request<{ id: string }, unknown, UpdateArticleContentDto>, res: Response) => {
     const user = CurrentUser(req);
     const revision = await articlesService.saveArticleContent(user, req.params.id, req.body);
-    res.status(200).json(revision);
+    res.status(200).json(toRevisionView(revision));
   },
 );
 

@@ -6,10 +6,6 @@ import { PublicArticleSummary, PublicArticleView, toPublicArticleView } from "./
 
 const PAGE_SIZE = 20;
 
-function featuredImageUrl(storageKey: string | null): string | null {
-  return storageKey ? `/uploads/${storageKey}` : null;
-}
-
 /// BR-01 — the query, not the view, is the control: publicationStatus is
 /// LIVE if and only if currentPublishedRevisionId is set (I-4, enforced by
 /// a database CHECK constraint), so this filter can never leak a draft.
@@ -48,7 +44,7 @@ export async function listPublished(
   // homepage that couldn't actually render either component as designed.
   const summaries: PublicArticleSummary[] = page.map((article) => {
     const revision = revisionById.get(article.currentPublishedRevisionId!);
-    const imageUrl = featuredImageUrl(revision?.featuredImage?.storageKey ?? null);
+    const imageUrl = revision?.featuredImage?.url ?? null;
     return {
       slug: article.slug,
       category: { name: article.category.name, slug: article.category.slug },
@@ -102,7 +98,7 @@ export async function getPublishedArticle(categorySlug: string, slug: string): P
   return toPublicArticleView(
     article,
     revision,
-    featuredImageUrl(revision.featuredImage?.storageKey ?? null),
+    revision.featuredImage?.url ?? null,
     sources.map((s) => ({ name: s.source.name, note: s.note, url: s.source.url })),
   );
 }

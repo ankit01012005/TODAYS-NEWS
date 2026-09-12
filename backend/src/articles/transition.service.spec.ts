@@ -6,6 +6,7 @@ const admin: AuthenticatedUser = { id: "admin-1", email: "a@test.local", display
 
 const tx = {
   article: { findUnique: jest.fn(), update: jest.fn() },
+  category: { findUnique: jest.fn() },
   articleRevision: {
     findFirst: jest.fn(),
     findUniqueOrThrow: jest.fn(),
@@ -21,6 +22,7 @@ const tx = {
 jest.mock("../db", () => ({
   prisma: { $transaction: (fn: (tx: unknown) => unknown) => fn(tx) },
 }));
+jest.mock("../cache/revalidate", () => ({ invalidatePublicCache: jest.fn() }));
 
 // Imported AFTER the mock above so transition.service picks it up.
 import * as transitions from "./transition.service";
@@ -29,6 +31,7 @@ describe("transition.service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     tx.articleSource.findMany.mockResolvedValue([]);
+    tx.category.findUnique.mockResolvedValue({ id: "cat-1", deletedAt: null });
   });
 
   it("submitForReview refuses an incomplete revision — BR-09", async () => {
@@ -135,6 +138,8 @@ describe("transition.service", () => {
       articleId: "a1",
       state: "IN_REVIEW",
       createdByUserId: editor.id,
+      categoryId: "cat-1",
+      bylineOverride: null,
     });
     tx.articleRevision.updateMany.mockResolvedValue({ count: 1 });
     tx.articleRevision.findUniqueOrThrow.mockResolvedValue({ id: "r1", state: "PUBLISHED" });
@@ -145,6 +150,85 @@ describe("transition.service", () => {
     expect(tx.reviewDecision.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ decision: "APPROVED" }) }),
     );
+  });
+
+  describe("publish is the only place the public section/byline change — docs/27 A1", () => {
+    const liveArticle = {
+      id: "a1",
+      ownerId: editor.id,
+      categoryId: "cat-old",
+      bylineOverride: "Old Byline",
+      currentPublishedRevisionId: "old-rev",
+      firstPublishedAt: new Date("2026-01-01"),
+      deletedAt: null,
+    };
+
+    it("copies the approved revision's category and byline onto the article", async () => {
+      tx.article.findUnique.mockResolvedValue(liveArticle);
+      tx.articleRevision.findFirst.mockResolvedValue({
+        id: "r2",
+        articleId: "a1",
+        state: "IN_REVIEW",
+        createdByUserId: editor.id,
+        categoryId: "cat-new",
+        bylineOverride: "New Byline",
+      });
+      tx.category.findUnique.mockResolvedValue({ id: "cat-new", deletedAt: null });
+      tx.articleRevision.updateMany.mockResolvedValue({ count: 1 });
+      tx.articleRevision.findUniqueOrThrow.mockResolvedValue({ id: "r2", state: "PUBLISHED" });
+      tx.article.update.mockResolvedValue({ id: "a1", publicationStatus: "LIVE" });
+
+      await transitions.approveAndPublish(admin, "a1", 3);
+
+      expect(tx.article.update).toHaveBeenCalledWith({
+        where: { id: "a1" },
+        data: expect.objectContaining({
+          currentPublishedRevisionId: "r2",
+          categoryId: "cat-new",
+          bylineOverride: "New Byline",
+        }),
+      });
+    });
+
+    it("refuses to publish into a deactivated section, leaving the live story untouched", async () => {
+      tx.article.findUnique.mockResolvedValue(liveArticle);
+      tx.articleRevision.findFirst.mockResolvedValue({
+        id: "r2",
+        articleId: "a1",
+        state: "IN_REVIEW",
+        createdByUserId: editor.id,
+        categoryId: "cat-gone",
+        bylineOverride: null,
+      });
+      tx.category.findUnique.mockResolvedValue({ id: "cat-gone", deletedAt: new Date() });
+
+      await expect(transitions.approveAndPublish(admin, "a1", 3)).rejects.toThrow(ConflictError);
+      expect(tx.article.update).not.toHaveBeenCalled();
+      expect(tx.reviewDecision.create).not.toHaveBeenCalled();
+    });
+
+    it("a correction draft is created with the live revision's section and byline", async () => {
+      tx.article.findUnique.mockResolvedValue(liveArticle);
+      tx.articleRevision.findUniqueOrThrow.mockResolvedValue({
+        id: "old-rev",
+        articleId: "a1",
+        state: "PUBLISHED",
+        categoryId: "cat-old",
+        bylineOverride: "Old Byline",
+        headline: "h",
+        summary: "s",
+        body: [],
+      });
+      tx.articleRevision.create.mockResolvedValue({ id: "draft", articleId: "a1", state: "DRAFT" });
+
+      await transitions.startCorrection(editor, "a1");
+
+      expect(tx.articleRevision.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ state: "DRAFT", categoryId: "cat-old", bylineOverride: "Old Byline" }),
+        }),
+      );
+    });
   });
 
   describe("requestChanges — docs/26 §1.4 archive+copy, not a same-row flip", () => {

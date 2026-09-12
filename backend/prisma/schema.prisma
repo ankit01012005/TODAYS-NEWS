@@ -20,7 +20,13 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Runtime connections. On a managed Postgres with a connection pooler in
+  // front (Neon, Supabase, PgBouncer) this is the POOLED address.
   url      = env("DATABASE_URL")
+  // What `prisma migrate` connects through — migrations need a direct,
+  // session-mode connection, which poolers in transaction mode refuse.
+  // Set it to the same value as DATABASE_URL when there is no pooler.
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +192,8 @@ model Category {
   updatedAt DateTime  @updatedAt @map("updated_at")
   deletedAt DateTime? @map("deleted_at")
 
-  articles Article[]
+  articles  Article[]
+  revisions ArticleRevision[]
 
   @@map("categories")
 }
@@ -230,6 +237,12 @@ model Article {
   slug              String                   @unique
   ownerId           String                   @map("owner_id") @db.Uuid
   owner             User                     @relation("ArticleOwner", fields: [ownerId], references: [id])
+  /// The section and byline readers see. Written on create and then ONLY
+  /// by the publish transition, which copies them from the revision being
+  /// published — a draft correction cannot move a live story to another
+  /// section (and so another URL) or change its byline before an admin
+  /// has approved it (docs/27 A1). The values being edited live on
+  /// ArticleRevision.
   categoryId        String                   @map("category_id") @db.Uuid
   category          Category                 @relation(fields: [categoryId], references: [id])
   bylineOverride    String?                  @map("byline_override")
@@ -303,6 +316,13 @@ model ArticleRevision {
 
   openMarker      Boolean? @map("open_marker")
   publishedMarker Boolean? @map("published_marker")
+
+  // Section and byline as proposed by THIS revision. Copied onto Article
+  // when the revision is published (docs/27 A1); until then the article's
+  // own values — what readers currently see — are untouched.
+  categoryId     String   @map("category_id") @db.Uuid
+  category       Category @relation(fields: [categoryId], references: [id])
+  bylineOverride String?  @map("byline_override")
 
   // Content — DM-07: structured blocks as validated JSON, never raw HTML.
   // Nullable because a brand-new DRAFT may not have them yet; BR-09
@@ -434,7 +454,12 @@ model SocialPick {
 
 model MediaAsset {
   id               String    @id @default(uuid()) @db.Uuid
+  /// The object's identifier at the storage provider (media/storage.ts).
   storageKey       String    @unique @map("storage_key")
+  /// Public https URL of the stored object, fixed at upload time. The only
+  /// image address the API ever returns or accepts (body.util.ts resolves
+  /// body image blocks from this column, never from the client's value).
+  url              String
   originalFilename String?   @map("original_filename")
   mimeType         String    @map("mime_type")
   sizeBytes        Int       @map("size_bytes")

@@ -1,7 +1,14 @@
-import { assertValidBodyShape, deriveBodyPlain, isSafeHref } from "./body.util";
+import {
+  assertValidBodyShape,
+  collectImageMediaIds,
+  deriveBodyPlain,
+  isSafeHref,
+  resolveImageUrls,
+} from "./body.util";
 import { BadRequestError } from "../common/http-errors";
 
 const MEDIA_ID = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+const CDN_URL = "https://res.cloudinary.com/demo/image/upload/v1/today-news/abc.jpg";
 
 const validBody = [
   { type: "paragraph", content: [{ text: "Hello " }, { text: "world", marks: ["strong"] }] },
@@ -12,7 +19,7 @@ const validBody = [
   },
   { type: "quote", content: [{ text: "Quoted" }], attribution: "Someone" },
   { type: "list", style: "ordered", items: [[{ text: "one" }], [{ text: "two" }]] },
-  { type: "image", mediaId: MEDIA_ID, url: "/uploads/abc.jpg", alt: "An image", credit: "Agency" },
+  { type: "image", mediaId: MEDIA_ID, url: CDN_URL, alt: "An image", credit: "Agency" },
   { type: "image", mediaId: "", url: "", alt: "" },
   { type: "divider" },
 ];
@@ -52,17 +59,9 @@ describe("assertValidBodyShape — docs/26 §3.4", () => {
     expect(() => assertValidBodyShape([{ type: "list", style: "bullets", items: [] }])).toThrow(BadRequestError);
   });
 
-  it("rejects an image that points outside this server's media path", () => {
-    for (const url of ["https://evil.example/x.jpg", "/uploads/../.env", "javascript:1", "/other/x.jpg"]) {
-      expect(() =>
-        assertValidBodyShape([{ type: "image", mediaId: MEDIA_ID, url, alt: "x" }]),
-      ).toThrow(BadRequestError);
-    }
-  });
-
   it("rejects an image with a non-UUID mediaId unless it is the empty draft placeholder", () => {
     expect(() =>
-      assertValidBodyShape([{ type: "image", mediaId: "not-a-uuid", url: "/uploads/x.jpg", alt: "x" }]),
+      assertValidBodyShape([{ type: "image", mediaId: "not-a-uuid", url: CDN_URL, alt: "x" }]),
     ).toThrow(BadRequestError);
     expect(() => assertValidBodyShape([{ type: "image", mediaId: "", url: "", alt: "" }])).not.toThrow();
   });
@@ -78,6 +77,40 @@ describe("assertValidBodyShape — docs/26 §3.4", () => {
   it("enforces the block-count limit", () => {
     const tooMany = Array.from({ length: 501 }, () => ({ type: "divider" }));
     expect(() => assertValidBodyShape(tooMany)).toThrow(BadRequestError);
+  });
+});
+
+describe("image URLs come from the media asset row, never the request", () => {
+  it("collects each non-empty image's mediaId once", () => {
+    const body = [
+      { type: "image", mediaId: MEDIA_ID, url: "", alt: "" },
+      { type: "image", mediaId: MEDIA_ID, url: "", alt: "" },
+      { type: "image", mediaId: "", url: "", alt: "" },
+      { type: "divider" },
+    ];
+    assertValidBodyShape(body);
+    expect(collectImageMediaIds(body)).toEqual([MEDIA_ID]);
+  });
+
+  it("replaces whatever url the client sent with the stored one", () => {
+    const body = [{ type: "image", mediaId: MEDIA_ID, url: "https://evil.example/x.jpg", alt: "x" }];
+    assertValidBodyShape(body);
+    const resolved = resolveImageUrls(body, new Map([[MEDIA_ID, CDN_URL]]));
+    expect(resolved[0].url).toBe(CDN_URL);
+    // Pure: the caller's array is untouched.
+    expect(body[0].url).toBe("https://evil.example/x.jpg");
+  });
+
+  it("leaves the empty draft placeholder alone", () => {
+    const body = [{ type: "image", mediaId: "", url: "", alt: "" }];
+    assertValidBodyShape(body);
+    expect(resolveImageUrls(body, new Map())).toEqual(body);
+  });
+
+  it("refuses an image naming an asset that does not exist or was deleted", () => {
+    const body = [{ type: "image", mediaId: MEDIA_ID, url: "", alt: "x" }];
+    assertValidBodyShape(body);
+    expect(() => resolveImageUrls(body, new Map())).toThrow(BadRequestError);
   });
 });
 

@@ -50,8 +50,10 @@ function toFormState(revision: RevisionView | null, article: ArticleDetailView):
     body: parseBody(revision?.body),
     seoTitle: revision?.seoTitle ?? "",
     seoDescription: revision?.seoDescription ?? "",
-    categoryId: article.categoryId,
-    bylineOverride: article.bylineOverride ?? "",
+    // The revision's own section/byline (docs/27 A1) — the article-level
+    // values are what is currently published, which may differ.
+    categoryId: revision?.categoryId ?? article.categoryId,
+    bylineOverride: revision?.bylineOverride ?? article.bylineOverride ?? "",
     featuredImage: {
       featuredImageId: revision?.featuredImageId ?? null,
       featuredImageAlt: revision?.featuredImageAlt ?? null,
@@ -464,7 +466,14 @@ export function ArticleEditor({
         <div>
           <span className="text-label text-ink-muted">Sources</span>
           <div className="mt-1">
-            <SourcePicker articleId={article.id} attached={attachedSources} available={sources} disabled={!isEditable} />
+            <SourcePicker
+              articleId={article.id}
+              attached={attachedSources}
+              available={sources}
+              disabled={!isEditable}
+              version={version}
+              onVersionChange={setVersion}
+            />
           </div>
         </div>
 

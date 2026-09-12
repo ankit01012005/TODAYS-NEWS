@@ -111,20 +111,49 @@ export async function requestPasswordReset(email: string): Promise<void> {
   // generic response whether or not the account exists (P2-11-style).
 }
 
+/// SEC-05's spirit (docs/27 A4): a new password ends every session that
+/// was opened with the old one — including any an attacker holds. The
+/// caller's own current session, if any, is kept so a profile change
+/// doesn't sign the person out mid-flow.
+async function revokeOtherSessions(userId: string, keepRawToken?: string): Promise<void> {
+  await prisma.session.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+      ...(keepRawToken ? { NOT: { tokenHash: hashToken(keepRawToken) } } : {}),
+    },
+    data: { revokedAt: new Date() },
+  });
+}
+
 /// Spends a set-password token (invitation or reset — same table, same
 /// rule) and sets the new password. A generic failure either way: an
 /// unknown/expired/already-used token all look identical to the caller.
+///
+/// The token is consumed in ONE conditional write (docs/27 A4): the UPDATE
+/// only matches while the hash is still present and unexpired, so two
+/// requests racing with the same link cannot both succeed — the second
+/// finds nothing to update and gets the same generic failure.
 export async function setPasswordWithToken(rawToken: string, newPassword: string): Promise<void> {
   const tokenHash = hashToken(rawToken);
-  const user = await prisma.user.findUnique({ where: { passwordResetTokenHash: tokenHash } });
+  const genericFailure = () => new UnauthorizedError("This link is invalid or has expired");
 
-  if (!user || !user.passwordResetExpiresAt || user.passwordResetExpiresAt <= new Date()) {
-    throw new UnauthorizedError("This link is invalid or has expired");
-  }
+  // The read only tells us WHICH account to revoke sessions for; whether
+  // the token is still spendable is decided by the guarded write below.
+  const candidate = await prisma.user.findUnique({
+    where: { passwordResetTokenHash: tokenHash },
+    select: { id: true },
+  });
+  if (!candidate) throw genericFailure();
 
   const passwordHash = await argon2.hash(newPassword);
-  await prisma.user.update({
-    where: { id: user.id },
+  const consumed = await prisma.user.updateMany({
+    where: {
+      id: candidate.id,
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { gt: new Date() },
+      status: "ACTIVE",
+    },
     data: {
       passwordHash,
       passwordResetTokenHash: null,
@@ -132,6 +161,9 @@ export async function setPasswordWithToken(rawToken: string, newPassword: string
       passwordSetAt: new Date(),
     },
   });
+  if (consumed.count === 0) throw genericFailure();
+
+  await revokeOtherSessions(candidate.id);
 }
 
 /// docs/09 E-10 / docs/12 PG-EDT-10 — self-service profile update. Role is
@@ -141,6 +173,7 @@ export async function setPasswordWithToken(rawToken: string, newPassword: string
 export async function updateProfile(
   userId: string,
   input: { displayName?: string; currentPassword?: string; newPassword?: string },
+  currentSessionRawToken?: string,
 ): Promise<AuthenticatedUser> {
   const data: { displayName?: string; passwordHash?: string; passwordSetAt?: Date } = {};
 
@@ -164,6 +197,9 @@ export async function updateProfile(
   }
 
   const updated = await prisma.user.update({ where: { id: userId }, data });
+  if (data.passwordHash) {
+    await revokeOtherSessions(userId, currentSessionRawToken);
+  }
   return {
     id: updated.id,
     email: updated.email,

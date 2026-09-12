@@ -4,7 +4,6 @@ import { ChangeEvent, useRef, useState } from "react";
 import Image from "next/image";
 import { BLOCK_TYPE_LABELS, BodyBlock, emptyBlock, ImageBlock, spansOf, textOf } from "@/lib/api/body-blocks";
 import { MediaAssetView } from "@/lib/api/cms-types";
-import { mediaUrl } from "@/lib/api/media-url";
 import { uploadMediaFile } from "@/lib/api/upload-media";
 import { Button } from "./Button";
 import { TextAreaField, TextField } from "./TextField";
@@ -218,7 +217,7 @@ function ImageBlockEditor({
     try {
       const asset = await uploadMediaFile(file);
       onMediaUploaded(asset);
-      onChange({ ...block, mediaId: asset.id, url: mediaUrl(asset.storageKey) });
+      onChange({ ...block, mediaId: asset.id, url: asset.url });
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -239,7 +238,7 @@ function ImageBlockEditor({
           value={block.mediaId}
           onChange={(e) => {
             const asset = media.find((m) => m.id === e.target.value);
-            onChange({ ...block, mediaId: e.target.value, url: asset ? mediaUrl(asset.storageKey) : "" });
+            onChange({ ...block, mediaId: e.target.value, url: asset ? asset.url : "" });
           }}
         >
           <option value="">Choose uploaded image…</option>

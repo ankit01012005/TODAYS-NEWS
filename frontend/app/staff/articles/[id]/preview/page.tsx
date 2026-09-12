@@ -8,7 +8,6 @@ import { ArticleMeta } from "@/components/public/ArticleMeta";
 import { SourcesBlock } from "@/components/public/SourcesBlock";
 import { requireSession } from "@/lib/api/session";
 import { getArticle, getArticleSources, listCategoriesForStaff, listMedia } from "@/lib/api/cms";
-import { mediaUrl } from "@/lib/api/media-url";
 
 export const metadata: Metadata = { title: "Preview — Today News", robots: { index: false } };
 
@@ -32,8 +31,11 @@ export default async function ArticlePreviewPage({ params }: { params: Promise<{
   ]);
 
   const revision = article.openRevision ?? article.publishedRevision;
-  const category = categories.find((c) => c.id === article.categoryId) ?? { name: "Uncategorized", slug: "" };
-  const byline = article.bylineOverride ?? user.displayName;
+  // The section and byline THIS revision would publish with (docs/27 A1)
+  // — not the article's currently published ones.
+  const categoryId = revision?.categoryId ?? article.categoryId;
+  const category = categories.find((c) => c.id === categoryId) ?? { name: "Uncategorized", slug: "" };
+  const byline = revision?.bylineOverride ?? article.bylineOverride ?? user.displayName;
   const sources = attachedSources
     .filter((s) => s.isPublic)
     .map((s) => ({ name: s.source.name, note: s.note, url: s.source.url }));
@@ -65,7 +67,7 @@ export default async function ArticlePreviewPage({ params }: { params: Promise<{
               <figure className="mt-space-6">
                 <div className="relative aspect-3/2 bg-surface-sunken">
                   <Image
-                    src={mediaUrl(featuredAsset.storageKey)}
+                    src={featuredAsset.url}
                     alt={revision.featuredImageAlt}
                     fill
                     preload

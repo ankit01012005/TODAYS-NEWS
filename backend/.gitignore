@@ -4,16 +4,3 @@ dist/
 .env.*
 !.env.example
 *.log
-
-# Ad-hoc local verification scripts (e.g. against an ephemeral embedded
-# Postgres) — never committed; delete after use.
-verify-*.ts
-verify-*.mjs
-.verify-pgdata/
-
-# Local-disk media storage placeholder (media/storage.ts) — dev only.
-uploads/
-
-# Persistent local dev database (scripts/dev-db.cjs) — machine-local data,
-# never committed.
-.devdb-data/

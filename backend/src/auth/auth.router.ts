@@ -127,7 +127,8 @@ authProtectedRouter.patch(
   "/auth/me",
   validateBody(UpdateProfileDto),
   async (req: Request<ParamsDictionary, unknown, UpdateProfileDto>, res: Response) => {
-    const user = await auth.updateProfile(CurrentUser(req).id, req.body);
+    const currentSession = req.cookies?.[config.SESSION_COOKIE_NAME] as string | undefined;
+    const user = await auth.updateProfile(CurrentUser(req).id, req.body, currentSession);
     res.status(200).json({ user });
   },
 );
