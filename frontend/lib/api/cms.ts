@@ -71,8 +71,24 @@ export async function listUsers(): Promise<StaffUserView[]> {
   return json(await authFetch("/users"));
 }
 
-/// PG-ADM-05 — owner or admin; the page that calls this restricts itself
-/// to admin (docs/12's stated permission for Article history).
+/// Per-article history — owner or admin (the backend enforces it).
 export async function getArticleAudit(id: string): Promise<AuditLogView[]> {
   return json(await authFetch(`/articles/${id}/audit`));
+}
+
+/// The global feed (2s) — admin only (audit:view). Raw rows, newest
+/// first, without actor names: the page joins those from the staff list.
+export interface AuditLogRow {
+  id: string;
+  actorUserId: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  articleId: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export async function listAudit(limit = 50, offset = 0): Promise<AuditLogRow[]> {
+  return json(await authFetch(`/audit?limit=${limit}&offset=${offset}`));
 }

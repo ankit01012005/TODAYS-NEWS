@@ -38,6 +38,10 @@ export interface PublicSourceRef {
   /// Where the source lives online, when the newsroom recorded one —
   /// shown as an outbound link (OQ-24, resolved 2026-09-12).
   url: string | null;
+  /// The admin's recorded vouch (sources.service.ts verify) — the green
+  /// badge on the article's Sources block. Optional so an API that
+  /// predates the field still renders; only `true` shows the badge.
+  verified?: boolean;
 }
 
 /// Mirrors backend/src/social/social.view.ts PublicSocialPickView — the

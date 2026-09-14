@@ -1,17 +1,17 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
 import { Alert } from "./Alert";
 import { useToast } from "./Toast";
 
-/// docs/12 PG-EDT-04. Serves both first-time invitation acceptance and a
-/// forgot-password reset — the backend uses one mechanism for both
-/// (docs/23 §11.3: "same mechanism"), so this form does too; `mode` only
-/// picks which endpoint spends the token and how success is worded.
+/// Serves both first-time invitation acceptance and a forgot-password
+/// reset — the backend uses one mechanism for both; `mode` only picks
+/// which endpoint spends the token and how success is worded.
 export type SetPasswordMode = "invitation" | "reset";
 
 const ENDPOINTS: Record<SetPasswordMode, string> = {
@@ -19,21 +19,57 @@ const ENDPOINTS: Record<SetPasswordMode, string> = {
   reset: "/auth/reset-password",
 };
 
-/// Confirmed twice on success — a toast the moment it happens, and a note
-/// on the sign-in page it lands on (SignInForm's ARRIVAL_NOTES), so the
-/// outcome is unmistakable even if the toast has faded.
-const DONE: Record<SetPasswordMode, { toast: string; detail: string; reason: string }> = {
+const DONE: Record<SetPasswordMode, { toast: string; detail: string; reason: string; button: string }> = {
   invitation: {
-    toast: "Password set — your account is ready",
+    toast: "Password set — welcome to the desk",
     detail: "Sign in with your email and the password you just chose.",
     reason: "password-set",
+    button: "Set password & start",
   },
   reset: {
     toast: "Password changed",
     detail: "Sign in with your new password.",
     reason: "password-reset",
+    button: "Change password",
   },
 };
+
+/// 1h's strength meter — three bars. Length carries most of the weight
+/// (the API requires 12 characters); variety adds the rest. A hint under
+/// the field says what would make it stronger, never just a colour.
+export function scorePassword(password: string): { score: 0 | 1 | 2 | 3; label: string; hint: string } {
+  if (password.length === 0) return { score: 0, label: "", hint: "At least 12 characters." };
+  const classes = [/[a-z]/, /[A-Z]/, /\d/, /[^\w\s]/].filter((re) => re.test(password)).length;
+  if (password.length < 12) return { score: 1, label: "too short", hint: `${12 - password.length} more character${12 - password.length === 1 ? "" : "s"} needed.` };
+  if (password.length >= 16 && classes >= 3) return { score: 3, label: "strong", hint: "Good — long and varied." };
+  if (password.length >= 14 || classes >= 3) return { score: 2, label: "good", hint: "Longer, or a mix of cases, numbers and symbols, makes it stronger." };
+  return { score: 1, label: "weak", hint: "Add length, or mix cases, numbers and symbols." };
+}
+
+export function StrengthMeter({ password }: { password: string }) {
+  const { score, label, hint } = useMemo(() => scorePassword(password), [password]);
+  const color = score === 3 ? "bg-success" : score === 2 ? "bg-gold" : "bg-brand";
+  const text = score === 3 ? "text-success" : score === 2 ? "text-gold-deep" : "text-brand";
+  return (
+    <div aria-live="polite">
+      <div className="flex items-center gap-x-space-2">
+        {[1, 2, 3].map((step) => (
+          <span key={step} className="h-[5px] flex-1 overflow-hidden bg-rule">
+            <motion.span
+              className={`block h-full ${color}`}
+              initial={false}
+              animate={{ scaleX: score >= step ? 1 : 0 }}
+              style={{ transformOrigin: "left" }}
+              transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
+            />
+          </span>
+        ))}
+        <span className={`w-16 text-right text-caption ${label ? text : "text-ink-faint"}`}>{label || "—"}</span>
+      </div>
+      <p className="mt-space-1 text-caption text-ink-muted">{hint}</p>
+    </div>
+  );
+}
 
 export function SetPasswordForm({ token, mode = "invitation" }: { token: string | null; mode?: SetPasswordMode }) {
   const router = useRouter();
@@ -57,7 +93,7 @@ export function SetPasswordForm({ token, mode = "invitation" }: { token: string 
     e.preventDefault();
     setError(null);
     if (password !== confirmPassword) {
-      setError("Passwords don't match");
+      setError("The two passwords don’t match");
       return;
     }
     setSubmitting(true);
@@ -79,31 +115,34 @@ export function SetPasswordForm({ token, mode = "invitation" }: { token: string 
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-space-4">
+    <form onSubmit={handleSubmit} className="space-y-space-3">
       {error ? <Alert variant="danger" title={error} /> : null}
       <TextField
         id="password"
-        label="New password"
+        label={mode === "reset" ? "New password" : "Choose a password"}
         type="password"
         autoComplete="new-password"
         required
         minLength={12}
-        hint="At least 12 characters"
+        autoFocus
         value={password}
         onChange={(e) => setPassword(e.target.value)}
       />
+      <StrengthMeter password={password} />
       <TextField
         id="confirmPassword"
-        label="Confirm password"
+        label="Repeat it"
         type="password"
         autoComplete="new-password"
         required
+        error={confirmPassword && confirmPassword !== password ? "Doesn’t match yet" : undefined}
         value={confirmPassword}
         onChange={(e) => setConfirmPassword(e.target.value)}
       />
       <Button type="submit" variant="primary" size="lg" loading={submitting} className="w-full">
-        Set password
+        {DONE[mode].button}
       </Button>
+      <p className="text-center text-mono-sm text-ink-faint">Single-use link · setting a password signs out every other session</p>
     </form>
   );
 }

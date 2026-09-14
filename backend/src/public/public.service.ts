@@ -99,7 +99,7 @@ export async function getPublishedArticle(categorySlug: string, slug: string): P
     article,
     revision,
     revision.featuredImage?.url ?? null,
-    sources.map((s) => ({ name: s.source.name, note: s.note, url: s.source.url })),
+    sources.map((s) => ({ name: s.source.name, note: s.note, url: s.source.url, verified: s.source.verified })),
   );
 }
 

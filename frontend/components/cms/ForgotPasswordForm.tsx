@@ -8,9 +8,9 @@ import { Button } from "./Button";
 import { Alert } from "./Alert";
 import { useToast } from "./Toast";
 
-/// docs/12 PG-EDT-03. P2-11-style: the backend returns the same generic
-/// confirmation whether or not the address belongs to an account — this
-/// form has nothing else to branch on, by design.
+/// 1h — the backend returns the same generic confirmation whether or not
+/// the address belongs to an account; this form has nothing else to
+/// branch on, by design.
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function ForgotPasswordForm() {
       }
       const body = (await res.json()) as { message: string };
       setMessage(body.message);
-      info("Reset link requested", "Check your inbox — the link works for one hour.");
+      info("Reset link requested", "Check your inbox — the link works once and expires.");
     } finally {
       setSubmitting(false);
     }
@@ -43,11 +43,11 @@ export function ForgotPasswordForm() {
   if (message) {
     return (
       <div className="space-y-space-4">
-        <Alert variant="success" title={message}>
-          The link works for one hour. If nothing arrives, check your spam folder or ask the newsroom admin.
+        <Alert variant="attention" title="Check your inbox — the link works once and expires.">
+          {message} If nothing arrives, check your spam folder or ask the newsroom admin.
         </Alert>
         <p className="text-center">
-          <Link href="/staff/sign-in" className="text-body-sm text-accent underline">
+          <Link href="/staff/sign-in" className="link-underline text-body-sm text-ink-muted hover:text-ink">
             Back to sign in
           </Link>
         </p>
@@ -56,7 +56,7 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-space-4">
+    <form onSubmit={handleSubmit} className="space-y-space-3">
       {error ? <Alert variant="danger" title={error} /> : null}
       <TextField
         id="email"
@@ -64,6 +64,7 @@ export function ForgotPasswordForm() {
         type="email"
         autoComplete="username"
         required
+        autoFocus
         value={email}
         onChange={(e) => setEmail(e.target.value)}
       />
@@ -71,7 +72,7 @@ export function ForgotPasswordForm() {
         Send reset link
       </Button>
       <p className="text-center">
-        <Link href="/staff/sign-in" className="text-body-sm text-accent underline">
+        <Link href="/staff/sign-in" className="link-underline text-body-sm text-ink-muted hover:text-ink">
           Back to sign in
         </Link>
       </p>

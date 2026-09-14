@@ -1,9 +1,14 @@
-# Today_news — Frontend
+# ANVAY TV — Frontend
 
 The public news site and the staff CMS (Editor + Admin), both in one
 Next.js App Router app. Next.js 16 + React 19 + Tailwind CSS 4, built on
-the Direction A ("Broadsheet") design system — see `../docs/19-design-system.md`
-and `../docs/20-visual-direction.md`.
+the **Anvay brand system** — the design handoff in
+`Anvay Frontend Wireframe3/design_handoff_anvay_frontend/` (README, the
+wireframe board and the client's brand references) is the source of
+truth for structure and tokens. It supersedes the earlier Direction A /
+Atlas Edition visual layer described in `../docs/19` and `../docs/20`;
+the routes, proxy, data layer and block editor from that generation are
+unchanged.
 
 This app never talks to the backend directly from the browser — see
 Architecture below.
@@ -15,6 +20,8 @@ Architecture below.
 | Framework  | Next.js 16 (App Router, Turbopack)                    |
 | UI         | React 19                                              |
 | Styling    | Tailwind CSS 4 (`@theme` tokens, no component library) |
+| Motion     | CSS (scroll-driven reveals, ticker, live dot) + framer-motion for orchestrated entrances, tab/nav indicators, toasts, count-ups |
+| Icons      | lucide-react for UI glyphs; platform marks drawn inline (`components/brand/SocialGlyph.tsx`) |
 | Images     | `next/image` over Cloudinary CDN URLs                  |
 | Language   | TypeScript 5.9                                        |
 | Lint       | ESLint 9 (`eslint-config-next`)                       |
@@ -64,39 +71,99 @@ Copy `.env.example` to `.env.local`; that file is git-ignored.
 | `npm run lint`      | `eslint .`                                      |
 | `npm run typecheck` | `tsc --noEmit`                                  |
 
+## Brand and design tokens
+
+`app/globals.css` holds the whole system in one `@theme` block: the six
+brand colours (Sindoor Red `#C81E1E`, Indigo Black `#12141C`, Haldi Gold
+`#E8A33D`, Bone `#F4F2EE`, Slate `#5F6672`, Fresh Green `#1F8A5B`) and
+the derived washes, the seven article-state colours, Archivo (everything)
++ IBM Plex Mono (timestamps, versions, addresses), the 4px spacing scale,
+square corners with pills only for tags/states/the live dot, and the
+motion easings. The rules the tokens encode are written at the top of the
+file — gold never carries text on light, green is never decorative, red
+is never more than ~10% of a screen.
+
+The wordmark is drawn in type (`components/brand/Wordmark.tsx`): `ANVAY`
+in Archivo 800, `TV` in red, the red pulse polyline beneath
+(`PulseLine.tsx`). Vector versions for the press kit live in
+`public/brand/` and the favicon is `app/icon.svg`. Ask the client for
+production logo files before launch — these are faithful reconstructions
+of direction 04 "The Pulse", not the client's originals.
+
 ## Project structure
 
 ```
 app/
-  (home)/, [category]/, [category]/[slug]/     # Public site
-  about/, contact/, editorial-policy/, privacy/ # Static pages
-  sitemap.ts, robots.ts, feed.xml/              # SEO surfaces
+  (home)/, [category]/, [category]/[slug]/     # Reader site: Pulse Front, section, story
+  about/, contact/, editorial-policy/, privacy/ # Static pages (contact/pitch forms compose an email)
+  pr/                                           # PR & Distribution — reach cards, press kit, pitch form
+  tv/                                           # ANVAY TV hub — YouTube embeds from lib/site.ts config
+  search/                                       # Reader search over the public list (see lib/search.ts)
+  sitemap.ts, robots.ts, feed.xml/, icon.svg    # SEO surfaces + favicon
   staff/                                        # The CMS (Editor + Admin)
     sign-in/, forgot-password/, reset-password/, accept-invitation/, access-denied/
-    page.tsx                                    # Dashboard — branches by role
+    page.tsx                                    # Dashboard — the editor desk or the admin desk, by role
     articles/, articles/new/, articles/[id]/{edit,preview,history}/
     review/, review/[id]/                       # Admin-only review queue + decision page
-    users/, sources/, categories/, social/      # Admin-only newsroom management
+    users/, categories/, social/, audit/        # Admin-only newsroom management (+ the audit log)
+    sources/                                    # Both roles: editors add, admins verify
     media/                                      # Media library (both roles): delete, admin sync with Cloudinary
     profile/
   api/backend/[...path]/route.ts                # The one authenticated proxy — see below
   api/revalidate/route.ts                       # Cache purge endpoint the API calls on publish
-  layout.tsx                                    # Root layout; mounts the ToastProvider
+  layout.tsx                                    # Root layout; mounts MotionProvider + ToastProvider
 components/
-  public/    # Article rendering shared by the public site AND the CMS preview
-  cms/       # CMS UI: editor, body editor, pickers, management panels, primitives
+  brand/     # Wordmark, PulseLine, SocialGlyph
+  layout/    # Masthead, PrimaryNav, MobileMenu, PulseBand (ticker), HandlesBar, PublicFooter
+  public/    # Story cards, Just In, Top on social, desk sections, article rendering
+             # (shared by the public site AND the CMS preview / decision page)
+  cms/       # CMS UI: composer, body editor, pickers, managers, primitives
              # Toast.tsx — ToastProvider + useToast(), the acknowledgement for every write
-             # MediaLibrary.tsx — the /staff/media page's client component
-  layout/    # Public masthead, nav, footer
-  motion/    # Reveal/tilt runtime for the public site
+             # WriteFailures.tsx — the stale-version notice and the session-expired sign-in dialog
+  motion/    # MotionProvider, Reveal, TextReveal, ImageReveal, Spotlight, CountUp, RevealRuntime
 lib/
   api/
     public.ts, public-types.ts                  # Public-read fetchers (no auth; cache-tagged "public")
     session.ts, cms.ts, cms-types.ts, auth-types.ts   # Server-side authenticated reads
     client-fetch.ts, upload-media.ts, body-blocks.ts   # Client-side write helpers
+  actions/public.ts                             # Server functions behind the reader's "Load more"
+  search.ts                                     # Reader search without a search endpoint
+  diff.ts                                       # Word diff for "Compare with rev n" on the history page
   cloudinary-loader.ts                          # next/image loader — CDN does the resizing (see below)
-  format-date.ts, reading-time.ts, site.ts, social-platform.ts
+  format-date.ts, reading-time.ts, site.ts, site-url.ts, social-platform.ts
 ```
+
+## Site configuration (`lib/site.ts`)
+
+Hand-maintained values the design needs that are not in the database:
+the site name and tagline, the four social handles (used by the handles
+bar, footer, mobile menu and PR page — `reach` renders as "—" until the
+real figure is filled in), the contact addresses (the public forms
+compose an email to these; nothing is posted anywhere), the ANVAY TV
+config (`liveVideoId`, next bulletin time, shorts and bulletins as
+YouTube ids), and the PR desk copy. Replace the placeholders before the
+public sees them.
+
+## Motion
+
+Two layers, both off under `prefers-reduced-motion`:
+
+- **CSS, scroll-driven, no listeners** — the scroll reveal
+  (`.reveal` + `components/motion/RevealRuntime.tsx`, which never hides
+  content already in view and does nothing without JavaScript), the
+  Pulse ticker (pauses on hover), the live dot's ring, the lead picture's
+  parallax drift, the reading-progress bar, the nav's shadow once
+  scrolled, section rules drawing in, card hover rules and "Read" tags.
+- **framer-motion** — `TextReveal` (headlines arrive word by word),
+  `ImageReveal` (the lead picture wipes open), `Spotlight` (a gold glow
+  follows the pointer on the dark heroes), `CountUp` (dashboard counts),
+  the sliding tab/nav indicators, toasts, dialogs and the composer's block
+  list. `MotionProvider` in the root layout applies `reducedMotion="user"`
+  to all of it.
+
+The lead story card is deliberately *not* a shared-element morph target
+(its wipe would fight the morph); every other card image morphs into the
+article hero via React `<ViewTransition>`.
 
 ## Architecture: how this app talks to the backend
 
@@ -151,6 +218,24 @@ stories appear under the **Archived** tab of the article list so they can
 be found, restored or deleted; they never disappear from the CMS while
 they exist in the database.
 
+**Optimistic concurrency, made visible.** Every transition posts the
+`version` the page loaded. A `409` from the API is rendered as the
+"Someone else changed this" panel (`StaleVersionNotice`) with Reload and
+"Copy my text first"; a `401` mid-edit opens the session-expired dialog,
+which signs the person in again in place and retries the exact write —
+the draft never leaves the screen (`lib/api/client-fetch.ts`
+`readWriteFailure`).
+
+**Search.** `/search?q=` has no backend endpoint yet: `lib/search.ts`
+walks the public list (bounded to eight pages) and matches headline,
+summary, byline and section. When `GET /public/search` exists, replace
+`searchPublished` and nothing else changes.
+
+**404 status.** The dynamic public routes have no `loading.tsx` on
+purpose: a streamed response can only answer `200`, and an unknown
+section or a withdrawn story must answer `404` (SEO-10, SEC-03).
+`generateMetadata` throws `notFound()` before anything streams.
+
 **Cache invalidation.** Public fetches use `revalidate: 60` plus the
 `"public"` tag. When a story is published, corrected or withdrawn, the API
 calls `POST /api/revalidate` with the shared `REVALIDATE_SECRET`, and the
@@ -200,5 +285,12 @@ Components that fetch per-request, route handlers, and per-user pages.
 - **Body content has no inline-formatting editor** — the body editor
   supports the six V1 block types but not inline bold/italic/link marks
   (the public renderer supports them for content written another way).
-- **Placeholder branding and contact details** remain in the static pages
-  (`docs/27` E1) — replace before the public sees them.
+- **Placeholder handles, reach figures, contact addresses and TV config**
+  in `lib/site.ts`, and placeholder desk names on `/about` — replace
+  before the public sees them (`docs/27` E1). No production logo vector
+  from the client yet; `public/brand/*.svg` are reconstructions.
+- **No `GET /public/search`** — reader search scans the public list
+  (bounded). Fine at this size; a real endpoint is a day's work on the
+  API and a one-function swap here.
+- **No video block** — ANVAY TV lives on `/tv` as YouTube embeds from
+  config; stories stay text + photo (design handoff "Gaps" 1).

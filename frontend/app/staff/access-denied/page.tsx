@@ -1,26 +1,32 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CmsShell } from "@/components/cms/CmsShell";
 import { requireSession } from "@/lib/api/session";
-import Link from "next/link";
 
-export const metadata: Metadata = { title: "Access denied — Today News", robots: { index: false } };
+export const metadata: Metadata = { title: "Access denied", robots: { index: false } };
 
-/// PG-EDT-11 — a signed-in user reached something not theirs. Never
-/// confirms that a particular story exists (P2-10) — this page is reached
-/// via role-based UI routing only (session.ts's requireRole), never as a
-/// substitute for the backend's own ownership check, which returns a
-/// plain 404 for that case instead (SEC-03).
+/// 1h "ACCESS DENIED" — a signed-in person reached something not theirs.
+/// Capability, not role: editors never see review:* routes. Never
+/// confirms that a particular story exists — this page is reached via
+/// role-based UI routing only, never as a substitute for the backend's
+/// own ownership check, which returns a plain 404 for that case.
 export default async function AccessDeniedPage() {
   const user = await requireSession();
   return (
     <CmsShell user={user}>
-      <h1 className="text-heading-2 text-ink">This isn&rsquo;t available to you</h1>
-      <p className="mt-space-3 text-body text-ink-secondary">
-        Your account doesn&rsquo;t have access to this page.
-      </p>
-      <Link href="/staff" className="mt-space-5 inline-block text-body text-accent underline">
-        Back to your dashboard
-      </Link>
+      <div className="max-w-(--width-measure) border-l-[3px] border-brand pl-space-4">
+        <p className="text-label text-brand">Access denied</p>
+        <h1 className="mt-space-2 text-heading-1 text-ink">That page isn’t part of your desk.</h1>
+        <p className="mt-space-2 text-body text-ink-secondary">
+          Your account doesn’t have the capability this page needs. If you think it should, ask the newsroom admin.
+        </p>
+        <Link
+          href="/staff"
+          className="mt-space-5 inline-flex h-10 items-center border border-ink bg-paper px-space-4 text-body-sm text-ink no-underline transition-colors hover:bg-ink hover:text-paper"
+        >
+          Back to your dashboard
+        </Link>
+      </div>
     </CmsShell>
   );
 }

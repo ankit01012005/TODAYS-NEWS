@@ -1,8 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Check, ChevronLeft, Circle, Copy, Eye, History, Send } from "lucide-react";
 import {
   ArticleDetailView,
   ArticleSourceView,
@@ -13,24 +14,25 @@ import {
   RevisionView,
   SourceView,
 } from "@/lib/api/cms-types";
-import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
-import { BodyBlock, parseBody } from "@/lib/api/body-blocks";
+import { clientFetch, readWriteFailure, WriteFailure } from "@/lib/api/client-fetch";
+import { BodyBlock, parseBody, textOf } from "@/lib/api/body-blocks";
+import { formatRelative } from "@/lib/format-date";
 import { Alert } from "./Alert";
 import { BodyEditor } from "./BodyEditor";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { FeaturedImagePicker, FeaturedImageValue } from "./FeaturedImagePicker";
 import { FeedbackPanel } from "./FeedbackPanel";
+import { Panel } from "./Panel";
 import { SourcePicker } from "./SourcePicker";
-import { StatusBadge } from "./StatusBadge";
-import { TextAreaField, TextField } from "./TextField";
+import { LiveBadge, StatusBadge } from "./StatusBadge";
+import { FIELD_CLASS, SelectField, TextAreaField, TextField } from "./TextField";
 import { useToast } from "./Toast";
+import { SessionExpiredDialog, StaleVersionNotice } from "./WriteFailures";
 
-/// docs/26 §1.3 — the only two states a revision may still be written in.
-/// Mirrors backend/src/articles/articles.service.ts's EDITABLE_STATES
-/// exactly; the backend is the real enforcement point (a stale/bypassed
-/// client still gets refused server-side), this only decides what the UI
-/// offers.
+/// The only two states a revision may still be written in. Mirrors the
+/// backend's EDITABLE_STATES; the backend is the real enforcement point,
+/// this only decides what the UI offers.
 const EDITABLE_STATES: RevisionState[] = ["DRAFT", "CHANGES_REQUESTED"];
 
 interface FormState {
@@ -51,8 +53,6 @@ function toFormState(revision: RevisionView | null, article: ArticleDetailView):
     body: parseBody(revision?.body),
     seoTitle: revision?.seoTitle ?? "",
     seoDescription: revision?.seoDescription ?? "",
-    // The revision's own section/byline (docs/27 A1) — the article-level
-    // values are what is currently published, which may differ.
     categoryId: revision?.categoryId ?? article.categoryId,
     bylineOverride: revision?.bylineOverride ?? article.bylineOverride ?? "",
     featuredImage: {
@@ -64,10 +64,39 @@ function toFormState(revision: RevisionView | null, article: ArticleDetailView):
   };
 }
 
-/// The writing surface (docs/19 §4). One page covers PG-EDT-07/08/09 —
-/// editable, waiting-for-review and read-only are all this same
-/// component with different affordances, not separate routes, matching
-/// docs/26 §1.3's editable-states rule already enforced server-side.
+function bodyHasContent(blocks: BodyBlock[]): boolean {
+  return blocks.some((b) => {
+    if (b.type === "paragraph" || b.type === "heading" || b.type === "quote") return textOf(b.content).trim().length > 0;
+    if (b.type === "list") return b.items.some((i) => textOf(i).trim().length > 0);
+    if (b.type === "image") return b.url.length > 0;
+    return false;
+  });
+}
+
+function bodyAltMissing(blocks: BodyBlock[]): boolean {
+  return blocks.some((b) => b.type === "image" && b.url.length > 0 && b.alt.trim().length === 0);
+}
+
+/// Plain text of everything typed — what "Copy my text first" puts on
+/// the clipboard when a save is refused as stale.
+function plainText(form: FormState): string {
+  const body = form.body
+    .map((b) => {
+      if (b.type === "paragraph" || b.type === "heading" || b.type === "quote") return textOf(b.content);
+      if (b.type === "list") return b.items.map((i) => `• ${textOf(i)}`).join("\n");
+      if (b.type === "image") return `[image: ${b.alt}]`;
+      return "---";
+    })
+    .join("\n\n");
+  return `${form.headline}\n\n${form.summary}\n\n${body}`.trim();
+}
+
+/// 1j — the composer, and 1m — the live story's controls. One page
+/// covers editable, waiting-for-review and read-only: the same component
+/// with different affordances, matching the editable-states rule already
+/// enforced server-side. Every transition posts the version the page
+/// loaded; a stale one surfaces as "someone else changed this", a lost
+/// session as a sign-in dialog that keeps the draft on screen.
 export function ArticleEditor({
   article,
   categories,
@@ -76,6 +105,7 @@ export function ArticleEditor({
   attachedSources,
   history,
   viewerRole,
+  names,
 }: {
   article: ArticleDetailView;
   categories: CategoryView[];
@@ -84,53 +114,45 @@ export function ArticleEditor({
   attachedSources: ArticleSourceView[];
   history: RevisionHistoryEntryView[];
   viewerRole: "EDITOR" | "ADMIN";
+  names?: Record<string, string>;
 }) {
   const router = useRouter();
   const latestHistoryRevision = history.at(-1) ?? null;
   const displayRevision: RevisionView | null = article.openRevision ?? article.publishedRevision ?? latestHistoryRevision;
   const isAdmin = viewerRole === "ADMIN";
-  // Admin has no authoring capability at all (backend/src/common/capabilities.ts)
-  // — these two can reach an admin viewer (assertOwnerOrAdmin lets admin open
-  // any article to review it), so they must exclude admin explicitly rather
-  // than relying on article state alone, unlike before admin could author too.
-  const isEditable =
-    !isAdmin && article.openRevision !== null && EDITABLE_STATES.includes(article.openRevision.state);
+  const isLive = article.publicationStatus === "LIVE";
+  // Admin has no authoring capability at all — these must exclude admin
+  // explicitly rather than relying on article state alone.
+  const isEditable = !isAdmin && article.openRevision !== null && EDITABLE_STATES.includes(article.openRevision.state);
   const isInReview = article.openRevision?.state === "IN_REVIEW";
   const hasNoOpenRevision = article.openRevision === null;
-  const canStartCorrection = !isAdmin && article.publicationStatus === "LIVE" && hasNoOpenRevision;
-  // Admin-only recovery actions (docs/10 A-08/A-09, docs/11 T12/T14/T15/T16)
-  // — each operates on the state a rejected/archived/live-with-no-draft
-  // article is actually in, none of which are "editable" in the Save/
-  // Submit sense above.
-  const canWithdraw = isAdmin && article.publicationStatus === "LIVE" && hasNoOpenRevision;
+  const canStartCorrection = !isAdmin && isLive && hasNoOpenRevision;
+  const canWithdraw = isAdmin && isLive && hasNoOpenRevision;
   const canReopenOrArchive = isAdmin && hasNoOpenRevision && displayRevision?.state === "REJECTED";
-  const canRestore =
-    isAdmin && hasNoOpenRevision && article.publicationStatus !== "LIVE" && displayRevision?.state === "ARCHIVED";
-  // OQ-12 (c) — the recorded hard delete. Admin only, and never while
-  // readers can see the story: withdrawing (with its reason and cache
-  // purge) is the act that takes something away from the public.
-  const canDelete = isAdmin && article.publicationStatus !== "LIVE";
+  const canRestore = isAdmin && hasNoOpenRevision && !isLive && displayRevision?.state === "ARCHIVED";
+  const canDelete = isAdmin && !isLive;
 
   const [form, setForm] = useState<FormState>(() => toFormState(displayRevision, article));
   const [version, setVersion] = useState<number>(displayRevision?.version ?? 0);
   const [media, setMedia] = useState<MediaAssetView[]>(initialMedia);
   const [dirty, setDirty] = useState(false);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [withdrawing, setWithdrawing] = useState(false);
-  const [startingCorrection, setStartingCorrection] = useState(false);
-  const [reopening, setReopening] = useState(false);
-  const [archiving, setArchiving] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [unpublishing, setUnpublishing] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const savedTimer = useRef<number | undefined>(undefined);
+  const [busy, setBusy] = useState<string | null>(null);
   const [unpublishReason, setUnpublishReason] = useState("");
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [stale, setStale] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const retryRef = useRef<(() => Promise<void>) | null>(null);
   const { success, info } = useToast();
 
-  // DM-02 excludes autosave as a binding decision — the only defense
-  // against silent data loss is warning before an unsaved tab closes.
+  const category = categories.find((c) => c.id === form.categoryId) ?? null;
+  const publicPath = `/${(categories.find((c) => c.id === article.categoryId) ?? category)?.slug ?? ""}/${article.slug}`;
+
+  // No autosave by design — the only defence against silent data loss is
+  // warning before an unsaved tab closes.
   useEffect(() => {
     function handleBeforeUnload(e: BeforeUnloadEvent) {
       if (dirty) e.preventDefault();
@@ -139,204 +161,172 @@ export function ArticleEditor({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [dirty]);
 
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
+
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
     setDirty(true);
-    setSaved(false);
   }
 
-  async function handleSave(e: FormEvent) {
-    e.preventDefault();
+  /// Every write goes through here so the three failure kinds are
+  /// handled identically: stale → the red panel; signed out → the
+  /// sign-in dialog that retries this exact action; anything else →
+  /// an inline alert.
+  async function perform(label: string, request: () => Promise<Response>, onOk: (res: Response) => Promise<void> | void): Promise<void> {
     setError(null);
-    setSaving(true);
+    setStale(false);
+    setBusy(label);
     try {
-      const res = await clientFetch(`/articles/${article.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          version,
-          headline: form.headline,
-          summary: form.summary,
-          body: form.body,
-          seoTitle: form.seoTitle,
-          seoDescription: form.seoDescription,
-          ...(form.featuredImage.featuredImageId ? { featuredImageId: form.featuredImage.featuredImageId } : {}),
-          featuredImageAlt: form.featuredImage.featuredImageAlt ?? "",
-          featuredImageCredit: form.featuredImage.featuredImageCredit ?? "",
-          featuredImageCaption: form.featuredImage.featuredImageCaption ?? "",
-          categoryId: form.categoryId,
-          bylineOverride: form.bylineOverride,
-        }),
-      });
+      const res = await request();
       if (!res.ok) {
-        setError(await readErrorMessage(res));
+        const failure: WriteFailure = await readWriteFailure(res);
+        if (failure.kind === "stale") setStale(true);
+        else if (failure.kind === "signed-out") {
+          retryRef.current = () => perform(label, request, onOk);
+          setSessionExpired(true);
+        } else setError(failure.message);
         return;
       }
-      const updated = (await res.json()) as { version: number };
-      setVersion(updated.version);
-      setDirty(false);
-      setSaved(true);
-      success("Saved", "Your changes are stored. Submit for review when the story is ready.");
-      router.refresh();
+      await onOk(res);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function handleSourceFailure(failure: WriteFailure) {
+    if (failure.kind === "stale") setStale(true);
+    else if (failure.kind === "signed-out") setSessionExpired(true);
+    else setError(failure.message);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await perform(
+        "save",
+        () =>
+          clientFetch(`/articles/${article.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              version,
+              headline: form.headline,
+              summary: form.summary,
+              body: form.body,
+              seoTitle: form.seoTitle,
+              seoDescription: form.seoDescription,
+              ...(form.featuredImage.featuredImageId ? { featuredImageId: form.featuredImage.featuredImageId } : {}),
+              featuredImageAlt: form.featuredImage.featuredImageAlt ?? "",
+              featuredImageCredit: form.featuredImage.featuredImageCredit ?? "",
+              featuredImageCaption: form.featuredImage.featuredImageCaption ?? "",
+              categoryId: form.categoryId,
+              bylineOverride: form.bylineOverride,
+            }),
+          }),
+        async (res) => {
+          const updated = (await res.json()) as { version: number };
+          setVersion(updated.version);
+          setDirty(false);
+          setSavedAt(new Date().toISOString());
+          setJustSaved(true);
+          window.clearTimeout(savedTimer.current);
+          savedTimer.current = window.setTimeout(() => setJustSaved(false), 2200);
+          success("Saved.", "Nothing is live until the desk approves it.");
+          router.refresh();
+        },
+      );
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSubmit() {
-    setError(null);
-    setSubmitting(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version }),
-      });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
+  // Ctrl/Cmd+S saves, the way every writing tool does. The listener is
+  // re-bound each render so it always sees the latest form — cheap.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (isEditable && !saving) void save();
       }
-      success("Submitted for review", "An admin will approve it, request changes or reject it.");
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault();
+    await save();
+  }
+
+  function transition(label: string, path: string, body: Record<string, unknown> | null, onOk: (res: Response) => Promise<void> | void) {
+    return perform(
+      label,
+      () =>
+        clientFetch(`/articles/${article.id}/${path}`, {
+          method: "POST",
+          ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
+        }),
+      onOk,
+    );
+  }
+
+  const handleSubmit = () =>
+    transition("submit", "submit", { version }, () => {
+      success("Sent to the desk.", "An editor will approve it, send it back with notes, or decline it.");
       router.push("/staff/articles");
       router.refresh();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function handleWithdraw() {
-    setError(null);
-    setWithdrawing(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/withdraw`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version }),
-      });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      info("Withdrawn from review", "The story is a draft again — edit and resubmit when ready.");
+    });
+  const handleWithdraw = () =>
+    transition("withdraw", "withdraw", { version }, () => {
+      info("Pulled back from review.", "It’s a draft again — edit and resubmit when it’s ready.");
       router.refresh();
-    } finally {
-      setWithdrawing(false);
-    }
-  }
-
-  async function handleStartCorrection() {
-    setError(null);
-    setStartingCorrection(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/correct`, { method: "POST" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      success("Correction started", "Readers keep seeing the live version until an admin publishes your changes.");
+    });
+  const handleStartCorrection = () =>
+    transition("correct", "correct", null, () => {
+      success("Correction started.", "Readers keep seeing the live version until the desk publishes your changes.");
       router.refresh();
-    } finally {
-      setStartingCorrection(false);
-    }
-  }
-
-  /// T14 — admin only, reopens a REJECTED story as a fresh editable DRAFT
-  /// (docs/10 A-04 "Only an admin can reopen a rejected story").
-  async function handleReopen() {
-    setError(null);
-    setReopening(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/reopen`, { method: "POST" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      success("Reopened as a new draft");
+    });
+  const handleReopen = () =>
+    transition("reopen", "reopen", null, () => {
+      success("Reopened as a new draft.");
       router.refresh();
-    } finally {
-      setReopening(false);
-    }
-  }
-
-  /// T15 — admin only, retires a REJECTED story permanently (docs/10 A-09).
-  async function handleArchive() {
-    setError(null);
-    setArchiving(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/archive`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version }),
-      });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      info("Archived", "It stays on record under Archived and can be restored or deleted from there.");
+    });
+  const handleArchive = () =>
+    transition("archive", "archive", { version }, () => {
+      info("Archived.", "It stays on record under Archived and can be restored or deleted from there.");
       router.refresh();
-    } finally {
-      setArchiving(false);
-    }
-  }
-
-  /// T16 — admin only, restores an ARCHIVED story as a fresh editable DRAFT.
-  async function handleRestore() {
-    setError(null);
-    setRestoring(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/restore`, { method: "POST" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      success("Restored as a new draft");
+    });
+  const handleRestore = () =>
+    transition("restore", "restore", null, () => {
+      success("Restored as a new draft.");
       router.refresh();
-    } finally {
-      setRestoring(false);
-    }
-  }
-
-  /// T12 — admin only, takes a LIVE story down (docs/10 A-08 — "must be
-  /// fast to reach... a legal demand or a serious factual error does not
-  /// wait"). A reason is required (UnpublishDto).
-  async function handleUnpublish() {
-    setError(null);
-    setUnpublishing(true);
-    try {
-      const res = await clientFetch(`/articles/${article.id}/unpublish`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version, reason: unpublishReason }),
-      });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
+    });
+  const handleUnpublish = () =>
+    transition("unpublish", "unpublish", { version, reason: unpublishReason }, () => {
       setUnpublishReason("");
-      info("Story withdrawn", "It is off the site, listings, feed and sitemap.");
+      info("Withdrawn from the site.", "It is off the site, the feed and the sitemap; the public cache was purged.");
       router.refresh();
-    } finally {
-      setUnpublishing(false);
-    }
-  }
+    });
+  const handleDelete = () =>
+    perform(
+      "delete",
+      () => clientFetch(`/articles/${article.id}`, { method: "DELETE" }),
+      async (res) => {
+        const deleted = (await res.json()) as { slug: string; headline: string | null };
+        info("Deleted permanently.", `“${deleted.headline ?? deleted.slug}” is gone from the database. The audit record stays.`);
+        router.push("/staff/articles");
+        router.refresh();
+      },
+    );
 
-  /// OQ-12 (c) — gone from the database for good; only the audit trail
-  /// keeps a record that it existed and who removed it.
-  async function handleDelete() {
-    setError(null);
-    setDeleting(true);
+  async function copyCaption() {
+    const url = `${window.location.origin}${publicPath}`;
+    const caption = `${form.headline}\n\n${form.summary}\n\n${url}`;
     try {
-      const res = await clientFetch(`/articles/${article.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        setError(await readErrorMessage(res));
-        return;
-      }
-      const deleted = (await res.json()) as { slug: string; headline: string | null };
-      info("Story deleted permanently", `“${deleted.headline ?? deleted.slug}” has been removed from the database.`);
-      router.push("/staff/articles");
-      router.refresh();
-    } finally {
-      setDeleting(false);
+      await navigator.clipboard.writeText(caption);
+      success("Caption copied.", "Headline, summary and the story’s link — ready to paste on a handle.");
+    } catch {
+      setError("Couldn’t reach the clipboard. Select the headline and summary and copy them by hand.");
     }
   }
 
@@ -344,127 +334,257 @@ export function ArticleEditor({
     setMedia((m) => [asset, ...m]);
   }
 
+  // 1j "BEFORE YOU SUBMIT" — mirrors BR-09 and the alt-text CHECK
+  // constraint, so submit never 400s.
+  const checks = [
+    { key: "headline", label: "Headline", ok: form.headline.trim().length > 0 },
+    { key: "summary", label: "Summary", ok: form.summary.trim().length > 0 },
+    { key: "body", label: "Body has content", ok: bodyHasContent(form.body) },
+    { key: "section", label: "Section chosen", ok: Boolean(form.categoryId) },
+    {
+      key: "alt",
+      label: form.featuredImage.featuredImageId ? "Alt text on the lead image" : "Lead image (optional)",
+      ok: !form.featuredImage.featuredImageId || Boolean(form.featuredImage.featuredImageAlt?.trim()),
+      optional: !form.featuredImage.featuredImageId,
+    },
+    ...(form.body.some((b) => b.type === "image" && b.url)
+      ? [{ key: "body-alt", label: "Alt text on every picture", ok: !bodyAltMissing(form.body) }]
+      : []),
+  ];
+  const ready = checks.every((c) => c.ok);
+  const canSubmit = isEditable && ready && !dirty && !saving;
+  const backHref = isAdmin ? "/staff/articles" : "/staff/articles";
+
   return (
-    <div className="space-y-space-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-heading-2 text-ink">{form.headline || "Untitled"}</h1>
-          <p className="mt-space-1 text-body-sm text-ink-muted">/{article.slug}</p>
+    <div className="-mt-space-5 md:-mt-space-6">
+      {/* Toolbar — dark, sticky beneath the header. */}
+      <div className="band-dark sticky top-14 z-30 -mx-space-4 flex min-h-12 flex-wrap items-center justify-between gap-x-space-4 gap-y-space-2 px-space-4 py-space-2 md:-mx-space-6 md:px-space-6">
+        <div className="flex min-w-0 items-center gap-x-space-3">
+          <Link href={backHref} className="inline-flex items-center gap-x-space-1 text-body-sm text-bone/65 no-underline hover:text-bone">
+            <ChevronLeft size={14} aria-hidden="true" />
+            {isAdmin ? "All articles" : "My articles"}
+          </Link>
+          {isLive ? <LiveBadge /> : null}
+          {displayRevision && (!isLive || article.openRevision) ? <StatusBadge state={displayRevision.state} onDark /> : null}
         </div>
-        {displayRevision ? <StatusBadge state={displayRevision.state} size="md" /> : null}
+        <div className="flex items-center gap-x-space-2">
+          <SaveState savedAt={savedAt} dirty={dirty} version={version} editable={isEditable} />
+          <Link
+            href={`/staff/articles/${article.id}/preview`}
+            className="inline-flex h-8 items-center gap-x-space-1 border border-bone/50 px-space-3 text-body-sm text-bone no-underline transition-colors hover:border-bone hover:bg-bone/10"
+          >
+            <Eye size={13} aria-hidden="true" />
+            Preview
+          </Link>
+          {isEditable ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                loading={saving}
+                loadingLabel="Saving…"
+                icon={justSaved ? <Check size={13} className="tick-pop text-success" /> : undefined}
+                onClick={() => void save()}
+              >
+                {justSaved ? "Saved" : "Save"}
+              </Button>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                icon={<Send size={13} />}
+                loading={busy === "submit"}
+                loadingLabel="Sending…"
+                disabled={!canSubmit}
+                title={!ready ? "Finish the checklist first" : dirty ? "Save before submitting" : undefined}
+                onClick={handleSubmit}
+              >
+                Submit for review
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
 
-      {error ? <Alert variant="danger" title={error} /> : null}
-      {saved && !dirty ? <Alert variant="success" title="Saved" /> : null}
-      {dirty ? <Alert variant="attention" title="Unsaved changes" /> : null}
+      <div className="mt-space-5 space-y-space-3">
+        {stale ? <StaleVersionNotice loadedVersion={version} textToCopy={() => plainText(form)} /> : null}
+        {error ? <Alert variant="danger" title={error} /> : null}
+      </div>
 
-      <FeedbackPanel history={history} />
+      <div className="mt-space-4 grid grid-cols-1 gap-x-space-6 gap-y-space-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+        {/* ---- Left: the story ---- */}
+        <form id="article-form" onSubmit={handleSave} className="min-w-0 space-y-space-5">
+          <FeedbackPanel history={history} names={names} />
 
-      {isInReview ? (
-        <Alert variant="info" title="Waiting for review">
-          This story is being reviewed and can&rsquo;t be edited right now.
-        </Alert>
-      ) : null}
+          {isInReview ? (
+            <Alert variant="info" title="With the desk">
+              This story is being reviewed and can’t be edited right now.
+              {!isAdmin ? " Pull it back if you need to change something." : ""}
+            </Alert>
+          ) : null}
+          {isAdmin && !isInReview && article.openRevision ? (
+            <Alert variant="info" title="Read-only">
+              Editors write stories; you review them. It reaches the review queue when it’s submitted.
+            </Alert>
+          ) : null}
+          {canReopenOrArchive ? (
+            <Alert variant="attention" title="The desk declined this story">
+              <div className="mt-space-2 flex flex-wrap gap-space-2">
+                <Button variant="secondary" size="sm" loading={busy === "reopen"} onClick={handleReopen}>
+                  Reopen as a new draft
+                </Button>
+                <Button variant="tertiary" size="sm" loading={busy === "archive"} onClick={handleArchive}>
+                  Archive
+                </Button>
+              </div>
+            </Alert>
+          ) : null}
+          {canRestore ? (
+            <Alert variant="info" title="This story is archived">
+              <Button variant="secondary" size="sm" loading={busy === "restore"} onClick={handleRestore} className="mt-space-2">
+                Restore as a new draft
+              </Button>
+            </Alert>
+          ) : null}
 
-      {isAdmin && !isInReview && article.openRevision ? (
-        <Alert variant="info" title="Read-only">
-          Editors write stories; you review them. Submitted stories appear in the review queue.
-        </Alert>
-      ) : null}
-
-      {canStartCorrection ? (
-        <Alert variant="info" title="This story is published">
-          <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
-            <Button variant="secondary" size="sm" loading={startingCorrection} onClick={handleStartCorrection}>
-              Start a correction
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
-
-      {canWithdraw ? (
-        <Alert variant="danger" title="Withdraw this story">
-          <p className="mb-space-2">
-            Removes it from the site, listings, feed and sitemap immediately. A reason is required.
-          </p>
-          <TextAreaField
-            label="Reason"
-            rows={2}
-            value={unpublishReason}
-            onChange={(e) => setUnpublishReason(e.target.value)}
-          />
-          <div className="mt-space-2">
-            <ConfirmAction
-              label="Withdraw"
-              confirmLabel="Take this story down?"
-              variant="destructive"
-              loading={unpublishing}
-              disabled={unpublishReason.trim().length === 0}
-              onConfirm={handleUnpublish}
+          <div>
+            <label htmlFor="headline" className="text-label text-ink-muted">
+              Headline
+            </label>
+            <input
+              id="headline"
+              required
+              disabled={!isEditable}
+              placeholder="The headline goes here, plainly"
+              value={form.headline}
+              onChange={(e) => update("headline", e.target.value)}
+              className={`mt-space-1 h-12 ${FIELD_CLASS} border-rule-strong text-heading-3 font-bold`}
             />
           </div>
-        </Alert>
-      ) : null}
 
-      {canReopenOrArchive ? (
-        <Alert variant="attention" title="This story was rejected">
-          <div className="mt-space-2 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
-            <Button variant="secondary" size="sm" loading={reopening} onClick={handleReopen}>
-              Reopen as a new draft
-            </Button>
-            <Button variant="tertiary" size="sm" loading={archiving} onClick={handleArchive}>
-              Archive permanently
-            </Button>
-          </div>
-        </Alert>
-      ) : null}
-
-      {canRestore ? (
-        <Alert variant="info" title="This story is archived">
-          <Button variant="secondary" size="sm" loading={restoring} onClick={handleRestore} className="mt-space-2">
-            Restore as a new draft
-          </Button>
-        </Alert>
-      ) : null}
-
-      <form onSubmit={handleSave} className="space-y-space-5">
-        <TextField label="Headline" required disabled={!isEditable} value={form.headline} onChange={(e) => update("headline", e.target.value)} />
-        <TextAreaField
-          label="Summary"
-          rows={3}
-          required
-          disabled={!isEditable}
-          value={form.summary}
-          onChange={(e) => update("summary", e.target.value)}
-        />
-
-        <div>
-          <span className="text-label text-ink-muted">Section</span>
-          <select
-            className="mt-1 h-10 w-full rounded-sm border border-rule-strong bg-paper px-space-3 text-body text-ink disabled:cursor-not-allowed disabled:bg-surface disabled:text-ink-muted"
+          <TextAreaField
+            id="summary"
+            label="Summary"
+            labelNote="one or two sentences"
+            rows={3}
+            required
             disabled={!isEditable}
-            value={form.categoryId}
-            onChange={(e) => update("categoryId", e.target.value)}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            placeholder="What happened, for someone who will only read this line."
+            value={form.summary}
+            onChange={(e) => update("summary", e.target.value)}
+          />
 
-        <TextField
-          label="Byline override"
-          optional
-          disabled={!isEditable}
-          value={form.bylineOverride}
-          onChange={(e) => update("bylineOverride", e.target.value)}
-        />
+          <BodyEditor
+            blocks={form.body}
+            onChange={(b) => update("body", b)}
+            media={media}
+            onMediaUploaded={handleMediaUploaded}
+            disabled={!isEditable}
+          />
 
-        <div>
-          <span className="text-label text-ink-muted">Featured image</span>
-          <div className="mt-1">
+          {isInReview && !isAdmin ? (
+            <div className="border-t border-rule pt-space-4">
+              <ConfirmAction
+                label="Pull back from review"
+                confirmLabel="Take it back from the desk?"
+                detail="It becomes a draft again. Nothing readers see changes."
+                variant="secondary"
+                loading={busy === "withdraw"}
+                onConfirm={handleWithdraw}
+              />
+            </div>
+          ) : null}
+        </form>
+
+        {/* ---- Right rail ---- */}
+        <aside className="space-y-space-4 lg:sticky lg:top-[104px] lg:self-start">
+          {isEditable ? (
+            <Panel heading="Before you submit">
+              <ul className="space-y-space-2">
+                {checks.map((check) => (
+                  <li key={check.key} className={`flex items-center gap-x-space-2 text-body-sm ${check.ok ? (check.optional ? "text-ink-muted" : "text-success") : "text-brand"}`}>
+                    {check.ok ? (
+                      <Check size={14} strokeWidth={2.5} aria-hidden="true" className="tick-pop" />
+                    ) : (
+                      <Circle size={14} aria-hidden="true" />
+                    )}
+                    <span>{check.label}</span>
+                    <span className="sr-only">{check.ok ? " — done" : " — still needed"}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-space-3 text-mono-sm text-ink-faint">
+                {ready ? (dirty ? "save, then submit" : "ready to submit") : "submit unlocks when every line is ticked"}
+              </p>
+            </Panel>
+          ) : null}
+
+          {isLive ? (
+            <Panel tone="ink" heading="Live story" headingAside={<LiveBadge />}>
+              <p className="text-caption text-ink-muted">
+                published {article.publishedAt ? formatRelative(article.publishedAt) : "—"}
+              </p>
+              <p className="mt-space-1 break-all text-mono-sm text-ink-muted">
+                {publicPath} · slug is fixed forever now
+              </p>
+              <div className="mt-space-3 flex flex-col gap-y-space-2">
+                <Link
+                  href={publicPath}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex h-9 items-center justify-center border border-ink bg-paper px-space-3 text-body-sm text-ink no-underline transition-colors hover:bg-ink hover:text-paper"
+                >
+                  View on the site
+                </Link>
+                <Button variant="secondary" size="sm" className="h-9" icon={<Copy size={13} />} onClick={copyCaption}>
+                  Copy caption for social
+                </Button>
+                {canStartCorrection ? (
+                  <Button variant="secondary" size="sm" className="h-9" loading={busy === "correct"} onClick={handleStartCorrection}>
+                    Start a correction
+                  </Button>
+                ) : null}
+                <Link
+                  href={`/staff/articles/${article.id}/history`}
+                  className="inline-flex h-9 items-center justify-center gap-x-space-1 border border-rule-strong bg-paper px-space-3 text-body-sm text-ink-secondary no-underline transition-colors hover:border-ink hover:text-ink"
+                >
+                  <History size={13} aria-hidden="true" />
+                  View history ({history.length} revision{history.length === 1 ? "" : "s"})
+                </Link>
+              </div>
+              {canWithdraw ? (
+                <div className="mt-space-4 border-t border-rule pt-space-3">
+                  <TextAreaField
+                    id="unpublish-reason"
+                    label="Withdraw from the site"
+                    labelNote="reason required"
+                    rows={2}
+                    placeholder="Why it’s coming down — recorded in the audit log."
+                    value={unpublishReason}
+                    onChange={(e) => setUnpublishReason(e.target.value)}
+                  />
+                  <div className="mt-space-2">
+                    <ConfirmAction
+                      label="Withdraw from the site"
+                      confirmLabel="Take this story down now?"
+                      detail="It leaves the site, the feed and the sitemap immediately, and the public cache is purged."
+                      variant="gold"
+                      size="sm"
+                      loading={busy === "unpublish"}
+                      disabled={unpublishReason.trim().length === 0}
+                      onConfirm={handleUnpublish}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              <p className="mt-space-3 text-mono-sm text-ink-faint">
+                a correction opens a new revision — readers keep the published one until it’s approved
+              </p>
+            </Panel>
+          ) : null}
+
+          <Panel heading="Lead image">
             <FeaturedImagePicker
               value={form.featuredImage}
               onChange={(v) => update("featuredImage", v)}
@@ -472,35 +592,32 @@ export function ArticleEditor({
               onMediaUploaded={handleMediaUploaded}
               disabled={!isEditable}
             />
-          </div>
-        </div>
+            <p className="mt-space-2 text-mono-sm text-ink-faint">alt / credit / caption live on the revision, not the asset</p>
+          </Panel>
 
-        <div>
-          <span className="text-label text-ink-muted">Body</span>
-          <div className="mt-1">
-            <BodyEditor
-              blocks={form.body}
-              onChange={(b) => update("body", b)}
-              media={media}
-              onMediaUploaded={handleMediaUploaded}
-              disabled={!isEditable}
-            />
-          </div>
-        </div>
+          <Panel heading="Section & byline">
+            <SelectField id="categoryId" label="Section" disabled={!isEditable} value={form.categoryId} onChange={(e) => update("categoryId", e.target.value)}>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </SelectField>
+            <div className="mt-space-3">
+              <TextField
+                id="bylineOverride"
+                label="Byline override"
+                optional
+                placeholder="leave empty to use your name"
+                disabled={!isEditable}
+                value={form.bylineOverride}
+                onChange={(e) => update("bylineOverride", e.target.value)}
+              />
+            </div>
+            <p className="mt-space-2 text-mono-sm text-ink-faint">saved on the revision — readers only see it after publish</p>
+          </Panel>
 
-        <TextField label="SEO title" optional disabled={!isEditable} value={form.seoTitle} onChange={(e) => update("seoTitle", e.target.value)} />
-        <TextAreaField
-          label="SEO description"
-          optional
-          rows={2}
-          disabled={!isEditable}
-          value={form.seoDescription}
-          onChange={(e) => update("seoDescription", e.target.value)}
-        />
-
-        <div>
-          <span className="text-label text-ink-muted">Sources</span>
-          <div className="mt-1">
+          <Panel heading="Sources">
             <SourcePicker
               articleId={article.id}
               attached={attachedSources}
@@ -508,70 +625,76 @@ export function ArticleEditor({
               disabled={!isEditable}
               version={version}
               onVersionChange={setVersion}
+              onFailure={handleSourceFailure}
             />
-          </div>
-        </div>
+          </Panel>
 
-        {isEditable ? (
-          <div className="flex items-center gap-x-space-3 border-t border-rule pt-space-4">
-            <Button type="submit" variant="secondary" loading={saving}>
-              Save
-            </Button>
-            <Button type="button" variant="primary" loading={submitting} disabled={dirty} onClick={handleSubmit}>
-              Submit for review
-            </Button>
-            {dirty ? <span className="text-body-sm text-ink-muted">Save before submitting</span> : null}
-            <div className="ml-auto flex items-center gap-x-space-4">
-              {isAdmin ? (
-                <Link href={`/staff/articles/${article.id}/history`} className="text-body-sm text-accent underline">
-                  History
-                </Link>
-              ) : null}
-              <Link href={`/staff/articles/${article.id}/preview`} className="text-body-sm text-accent underline">
-                Preview
-              </Link>
+          <details className="group border border-rule-strong bg-paper">
+            <summary className="flex cursor-pointer list-none items-center justify-between p-space-4 text-label text-ink [&::-webkit-details-marker]:hidden">
+              Search & sharing
+              <span className="text-mono-sm text-ink-faint group-open:hidden">optional</span>
+            </summary>
+            <div className="space-y-space-3 px-space-4 pb-space-4">
+              <TextField id="seoTitle" label="SEO title" optional disabled={!isEditable} value={form.seoTitle} onChange={(e) => update("seoTitle", e.target.value)} />
+              <TextAreaField
+                id="seoDescription"
+                label="SEO description"
+                optional
+                rows={2}
+                disabled={!isEditable}
+                value={form.seoDescription}
+                onChange={(e) => update("seoDescription", e.target.value)}
+              />
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-x-space-4 border-t border-rule pt-space-4">
-            <Link href={`/staff/articles/${article.id}/preview`} className="text-body-sm text-accent underline">
-              Preview
-            </Link>
-            {isAdmin ? (
-              <Link href={`/staff/articles/${article.id}/history`} className="text-body-sm text-accent underline">
-                History
-              </Link>
-            ) : null}
-          </div>
-        )}
+          </details>
 
-        {isInReview && !isAdmin ? (
-          <div className="border-t border-rule pt-space-4">
-            <Button type="button" variant="destructive" loading={withdrawing} onClick={handleWithdraw}>
-              Withdraw from review
-            </Button>
-          </div>
-        ) : null}
-      </form>
+          {canDelete ? (
+            <Panel tone="danger" heading="Delete permanently">
+              <p className="text-body-sm text-ink">
+                {isLive ? "Refused while live." : "Removes the story and every one of its revisions, citations and review decisions."} The audit record stays.
+              </p>
+              <div className="mt-space-3">
+                <ConfirmAction
+                  label="Delete permanently"
+                  confirmLabel="Delete this story permanently?"
+                  detail={`${history.length} revision${history.length === 1 ? "" : "s"}, their citations and review decisions go with it.`}
+                  variant="destructive"
+                  size="sm"
+                  typeToConfirm={form.headline.trim() || article.slug}
+                  yesLabel="Delete"
+                  loading={busy === "delete"}
+                  onConfirm={handleDelete}
+                />
+              </div>
+            </Panel>
+          ) : null}
+        </aside>
+      </div>
 
-      {canDelete ? (
-        <section className="rounded-md border border-danger/40 bg-danger-wash/40 p-space-4">
-          <h2 className="text-label text-danger">Delete permanently</h2>
-          <p className="mt-space-1 text-body-sm text-ink-secondary">
-            Removes the story and every one of its revisions, citations and review decisions from the database.
-            Nothing can bring it back. The audit trail keeps a record of the deletion.
-          </p>
-          <div className="mt-space-3">
-            <ConfirmAction
-              label="Delete permanently"
-              confirmLabel="This cannot be undone."
-              variant="destructive"
-              loading={deleting}
-              onConfirm={handleDelete}
-            />
-          </div>
-        </section>
-      ) : null}
+      <SessionExpiredDialog
+        open={sessionExpired}
+        onSignedIn={() => {
+          setSessionExpired(false);
+          const retry = retryRef.current;
+          retryRef.current = null;
+          if (retry) void retry();
+        }}
+      />
     </div>
+  );
+}
+
+/// "saved 12s ago · v7" — re-renders every ten seconds so the age stays
+/// honest; "unsaved changes" the moment something is typed.
+function SaveState({ savedAt, dirty, version, editable }: { savedAt: string | null; dirty: boolean; version: number; editable: boolean }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick((n) => n + 1), 10_000);
+    return () => clearInterval(timer);
+  }, []);
+  return (
+    <span className="hidden text-mono-sm text-bone/55 sm:inline" aria-live="polite">
+      {editable && dirty ? <span className="text-gold">unsaved changes</span> : savedAt ? `saved ${formatRelative(savedAt)}` : "no changes"} · v{version}
+    </span>
   );
 }

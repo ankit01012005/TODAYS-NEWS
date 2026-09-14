@@ -7,6 +7,12 @@ import nextTypescript from "eslint-config-next/typescript";
 /// "Converting circular structure to JSON" crash from @eslint/eslintrc's
 /// legacy config validator, which doesn't expect a plugin object that
 /// references itself in its own `configs`.
-const eslintConfig = [...nextCoreWebVitals, ...nextTypescript];
+/// The Anvay design handoff (wireframes + their runtime) is a design
+/// reference, not source — never linted, never built.
+const eslintConfig = [
+  { ignores: ["Anvay Frontend Wireframe3/**"] },
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+];
 
 export default eslintConfig;

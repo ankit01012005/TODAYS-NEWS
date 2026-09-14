@@ -54,11 +54,28 @@ export async function getPublishedArticle(
   );
 }
 
-/// docs/19 §2.4 — the masthead's section nav needs every category on every
-/// public page, not just section pages.
+/// The masthead's section nav needs every category on every public page,
+/// not just section pages — including the 404 and the static pages, which
+/// have no story data of their own. A failure here therefore degrades to
+/// an empty nav rather than taking the whole page down with it; the pages
+/// that genuinely need stories still throw from their own fetches.
 export async function getCategories(): Promise<PublicCategoryRef[]> {
-  const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
-  return result ?? [];
+  try {
+    const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
+    return result ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/// The same tolerance for the chrome's "latest" strips (the Pulse band,
+/// the 404 page's "Meanwhile") — an empty list, never an error page.
+export async function getPublishedArticlesOrEmpty(): Promise<PublicArticleListResult> {
+  try {
+    return await getPublishedArticles();
+  } catch {
+    return { articles: [], nextCursor: null };
+  }
 }
 
 /// Brief §6/§7-adjacent — the front page's "Top on social" rail. Curated

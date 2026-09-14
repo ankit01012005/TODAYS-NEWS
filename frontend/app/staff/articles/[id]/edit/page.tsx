@@ -10,36 +10,38 @@ import {
   listCategoriesForStaff,
   listMedia,
   listSourcesForStaff,
+  listUsers,
 } from "@/lib/api/cms";
 
-export const metadata: Metadata = { title: "Edit article — Today News", robots: { index: false } };
+export const metadata: Metadata = { title: "Composer", robots: { index: false } };
 
-/// PG-EDT-07/08/09 combined into one page — ArticleEditor itself decides
-/// editable vs. read-only vs. waiting-for-review from the article's own
-/// state, per docs/26 §1.3.
+/// 1j — one page for editable, waiting-for-review and read-only;
+/// ArticleEditor decides from the article's own state.
 export default async function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireSession();
-  // Everything the editor needs in ONE parallel round: the API is a remote
-  // hop away and each call costs the same regardless of order. The
-  // per-article reads are gated by the same ownership check as getArticle
-  // (they 404 for a stranger), so nothing leaks by asking early — the
-  // article check below is still what decides whether the page renders.
-  const [article, categories, media, sources, attachedSources, history] = await Promise.all([
+  // Everything the composer needs in ONE parallel round: the API is a
+  // remote hop away and each call costs the same regardless of order.
+  // The per-article reads are gated by the same ownership check as
+  // getArticle (they 404 for a stranger), so nothing leaks by asking
+  // early — the article check below still decides whether the page renders.
+  const [article, categories, media, sources, attachedSources, history, users] = await Promise.all([
     getArticle(id),
     listCategoriesForStaff(),
     listMedia(),
     listSourcesForStaff(),
     getArticleSources(id).catch(() => null),
     getRevisionHistory(id).catch(() => null),
+    user.role === "ADMIN" ? listUsers().catch(() => []) : Promise.resolve([]),
   ]);
-  // SEC-03-adjacent: getArticle returns null for both "doesn't exist" and
-  // "not yours" (assertOwnerOrAdmin throws NotFoundError either way) — one
-  // notFound() call, no separate branch that could tell them apart.
+  // getArticle returns null for both "doesn't exist" and "not yours" —
+  // one notFound() call, no separate branch that could tell them apart.
   if (!article || attachedSources === null || history === null) notFound();
 
+  const names = Object.fromEntries(users.map((u) => [u.id, u.displayName]));
+
   return (
-    <CmsShell user={user}>
+    <CmsShell user={user} width="full">
       <ArticleEditor
         article={article}
         categories={categories}
@@ -48,6 +50,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ id
         attachedSources={attachedSources}
         history={history}
         viewerRole={user.role}
+        names={names}
       />
     </CmsShell>
   );

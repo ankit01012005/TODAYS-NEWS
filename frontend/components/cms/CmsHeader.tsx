@@ -3,13 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LogOut } from "lucide-react";
 import { AuthenticatedUser } from "@/lib/api/auth-types";
 import { clientFetch } from "@/lib/api/client-fetch";
+import { Wordmark } from "@/components/brand/Wordmark";
+import { Avatar } from "@/components/public/Avatar";
+import { Pill } from "./StatusBadge";
 import { useToast } from "./Toast";
 
-/// docs/19 §2.4 — wordmark + area label ("Editor"/"Newsroom"), user menu
-/// right. SEO-09: this masthead is CMS-only and never appears on a public
-/// page — no cross-linking either direction.
+/// 1i — the CMS chrome is Indigo Black: the wordmark in Bone, "Newsroom",
+/// the role pill and the person's avatar disc on the right. This header
+/// is CMS-only and never appears on a public page.
 export function CmsHeader({ user }: { user: AuthenticatedUser }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -18,39 +22,37 @@ export function CmsHeader({ user }: { user: AuthenticatedUser }) {
   async function handleSignOut() {
     setSigningOut(true);
     await clientFetch("/auth/sign-out", { method: "POST" });
-    info("Signed out");
+    info("Signed out", "See you at the next bulletin.");
     router.push("/staff/sign-in?reason=signed-out");
     router.refresh();
   }
 
   return (
-    <header className="sticky top-0 z-(--z-nav) border-b border-rule bg-paper/95 backdrop-blur-md">
+    <header className="band-dark sticky top-0 z-(--z-nav) border-b border-bone/10">
       <div className="mx-auto flex h-14 max-w-(--width-page-max-cms) items-center justify-between px-space-4 md:px-space-6">
         <div className="flex items-center gap-x-space-3">
-          <Link href="/staff" className="text-wordmark text-[22px] text-ink no-underline">
-            Today News
-            <span className="text-brand" aria-hidden="true">
-              .
-            </span>
-          </Link>
-          <span className="rounded-pill border border-rule bg-surface px-space-2 py-px text-label text-ink-muted">
-            {user.role === "ADMIN" ? "Newsroom" : "Editor"}
-          </span>
+          <Wordmark size="xs" tone="bone" pulse={false} href="/staff" label="Newsroom dashboard" />
+          <span className="hidden text-body-sm text-bone/60 sm:inline">Newsroom</span>
         </div>
-        <div className="flex items-center gap-x-space-4">
+        <div className="flex items-center gap-x-space-3">
+          <Pill tone="bone">{user.role === "ADMIN" ? "Admin" : "Editor"}</Pill>
           <Link
             href="/staff/profile"
-            className="link-underline hidden text-body-sm text-ink-secondary hover:text-ink sm:inline"
+            className="group flex items-center gap-x-space-2 no-underline"
+            aria-label={`${user.displayName} — your profile`}
           >
-            {user.displayName}
+            <Avatar name={user.displayName} size={28} tone="bone" />
+            <span className="link-underline hidden text-body-sm text-bone/85 group-hover:text-bone md:inline">{user.displayName}</span>
           </Link>
           <button
             type="button"
             onClick={handleSignOut}
             disabled={signingOut}
-            className="inline-flex h-8 items-center rounded-sm border border-rule-strong bg-paper px-space-3 text-body-sm text-ink transition-colors duration-(--duration-fast) hover:bg-surface disabled:text-ink-faint"
+            aria-label="Sign out"
+            className="inline-flex h-8 items-center gap-x-space-1 border border-bone/30 px-space-2 text-body-sm text-bone/80 transition-colors duration-(--duration-fast) hover:border-bone hover:text-bone disabled:opacity-60"
           >
-            {signingOut ? "Signing out…" : "Sign out"}
+            <LogOut size={13} aria-hidden="true" />
+            <span className="hidden sm:inline">{signingOut ? "Signing out…" : "Sign out"}</span>
           </button>
         </div>
       </div>

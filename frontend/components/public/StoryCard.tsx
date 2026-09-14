@@ -1,18 +1,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ViewTransition } from "react";
+import { ArrowRight } from "lucide-react";
 import { PublicArticleSummary, PublicSummaryImage } from "@/lib/api/public-types";
 import { formatPublicDate, formatRelative } from "@/lib/format-date";
+import { ImageReveal } from "@/components/motion/ImageReveal";
+import { TextReveal } from "@/components/motion/TextReveal";
 
-/// docs/19 §2.5 extended per brief §5/§6 — one card, five visual weights,
-/// so an editorial grid can mix image-led, typography-led and overlay
-/// stories without five components. The whole card is one link and the
-/// headline is its accessible name (§2.5 "Rules").
+/// One card, five visual weights, so the front page (1a), the section
+/// list (1e), search (2f) and "More in" (1d) can share one component:
 ///
-/// `morph` names the image for a shared-element route transition into
-/// the article hero (brief §19). Only pass it where a story can appear
-/// once on the page — a view-transition name must be unique.
-export type StoryCardVariant = "feature" | "standard" | "compact" | "text" | "overlay";
+///   lead      — 16:9 picture, red section pill, display headline, summary
+///   standard  — 4:3 picture, headline, optional summary
+///   row       — 150×100 thumbnail left, headline + summary right (1e)
+///   compact   — small thumbnail right, headline only (1g mobile rows)
+///   text      — typography only
+///
+/// The whole card is one link and the headline is its accessible name.
+/// `morph` names the image for the shared-element route transition into
+/// the article hero — pass it only where a story appears once on a page.
+export type StoryCardVariant = "lead" | "standard" | "row" | "compact" | "text";
 
 export function StoryCard({
   article,
@@ -20,6 +27,7 @@ export function StoryCard({
   morph = false,
   showSummary,
   preload = false,
+  headingLevel = 3,
   className = "",
 }: {
   article: PublicArticleSummary;
@@ -27,36 +35,64 @@ export function StoryCard({
   morph?: boolean;
   showSummary?: boolean;
   preload?: boolean;
+  headingLevel?: 1 | 2 | 3;
   className?: string;
 }) {
   const href = `/${article.category.slug}/${article.slug}`;
+  const Heading = headingLevel === 1 ? "h1" : headingLevel === 2 ? "h2" : "h3";
 
-  if (variant === "overlay") {
+  if (variant === "lead") {
     return (
-      <Link
-        href={href}
-        className={`group relative block aspect-4/5 overflow-hidden bg-ink no-underline shadow-depth-2 focus-visible:outline-paper sm:aspect-16/10 md:aspect-auto md:min-h-[480px] ${className}`}
-      >
-        <div className="absolute inset-0">
+      <Link href={href} className={`group block no-underline ${className}`}>
+        <ImageReveal className="relative aspect-16/9 overflow-hidden bg-surface-deep">
+          <div className="relative h-full w-full">
+            <StoryImage
+              image={article.featuredImage}
+              slug={article.slug}
+              morph={morph}
+              preload={preload}
+              parallax
+              sizes="(min-width: 1080px) 720px, (min-width: 900px) 66vw, 100vw"
+            />
+            <span className="read-tag">
+              Read <ArrowRight size={11} aria-hidden="true" />
+            </span>
+          </div>
+        </ImageReveal>
+        <div className="mt-space-4 flex flex-wrap items-center gap-x-space-3 gap-y-space-2">
+          <Kicker name={article.category.name} tone="brand" />
+          <Meta article={article} inline />
+        </div>
+        <Heading className="mt-space-3 text-display-1 text-ink">
+          <TextReveal text={article.headline} as="span" className="link-underline link-underline-2" delay={0.15} />
+        </Heading>
+        {showSummary !== false ? (
+          <p className="mt-space-3 max-w-[64ch] text-standfirst text-ink-secondary">{article.summary}</p>
+        ) : null}
+        <p className="mt-space-3 text-caption text-ink-muted">By {article.byline.trim() || "the newsroom"}</p>
+      </Link>
+    );
+  }
+
+  if (variant === "row") {
+    return (
+      <Link href={href} className={`group flex items-start gap-x-space-4 no-underline ${className}`}>
+        <div className="rule-grow relative aspect-3/2 w-[112px] shrink-0 overflow-hidden bg-surface-deep sm:w-[150px]">
           <StoryImage
             image={article.featuredImage}
             slug={article.slug}
             morph={morph}
-            preload={preload}
-            sizes="(min-width: 1200px) 840px, (min-width: 900px) 66vw, 100vw"
-            className="tilt-layer"
+            sizes="(min-width: 600px) 150px, 112px"
           />
-          <div className="surface-scrim-strong absolute inset-0" aria-hidden="true" />
         </div>
-        <div className="absolute inset-x-0 bottom-0 p-space-5 md:p-space-6">
-          <Kicker name={article.category.name} tone="light" />
-          <h3 className="mt-space-2 text-headline-lg text-paper">
-            <span className="link-underline-2 link-underline">{article.headline}</span>
-          </h3>
-          <p className="mt-space-2 hidden max-w-[60ch] text-body text-paper/85 md:line-clamp-2">
-            {article.summary}
-          </p>
-          <Meta article={article} tone="light" />
+        <div className="min-w-0 flex-1">
+          <Heading className="text-heading-3 text-ink">
+            <span className="link-underline">{article.headline}</span>
+          </Heading>
+          {showSummary !== false ? (
+            <p className="mt-space-2 hidden line-clamp-2 text-body-sm text-ink-secondary sm:block">{article.summary}</p>
+          ) : null}
+          <Meta article={article} className="mt-space-2" />
         </div>
       </Link>
     );
@@ -64,24 +100,16 @@ export function StoryCard({
 
   if (variant === "compact") {
     return (
-      <Link href={href} className={`group flex items-start gap-x-space-4 no-underline ${className}`}>
-        <div className="min-w-0 flex-1">
-          <Kicker name={article.category.name} />
-          <h3 className="mt-space-1 text-headline-sm text-ink">
-            <span className="link-underline">{article.headline}</span>
-          </h3>
-          <Meta article={article} compact />
+      <Link href={href} className={`group flex items-start gap-x-space-3 no-underline ${className}`}>
+        <div className="relative aspect-4/3 w-[78px] shrink-0 overflow-hidden bg-surface-deep">
+          <StoryImage image={article.featuredImage} slug={article.slug} morph={morph} sizes="78px" />
         </div>
-        {article.featuredImage ? (
-          <div className="relative aspect-square w-20 shrink-0 overflow-hidden bg-surface-sunken sm:w-24">
-            <StoryImage
-              image={article.featuredImage}
-              slug={article.slug}
-              morph={morph}
-              sizes="96px"
-            />
-          </div>
-        ) : null}
+        <div className="min-w-0 flex-1">
+          <Heading className="text-headline-sm text-ink">
+            <span className="link-underline">{article.headline}</span>
+          </Heading>
+          <Meta article={article} className="mt-space-1" compact />
+        </div>
       </Link>
     );
   }
@@ -89,61 +117,52 @@ export function StoryCard({
   if (variant === "text") {
     return (
       <Link href={href} className={`group block no-underline ${className}`}>
-        <Kicker name={article.category.name} />
-        <h3 className="mt-space-2 text-heading-3 text-ink">
+        <Kicker name={article.category.name} tone="muted" />
+        <Heading className="mt-space-2 text-heading-3 text-ink">
           <span className="link-underline">{article.headline}</span>
-        </h3>
+        </Heading>
         {showSummary !== false ? (
-          <p className="mt-space-2 line-clamp-3 text-body text-ink-secondary">{article.summary}</p>
+          <p className="mt-space-2 line-clamp-3 text-body-sm text-ink-secondary">{article.summary}</p>
         ) : null}
-        <Meta article={article} />
+        <Meta article={article} className="mt-space-2" />
       </Link>
     );
   }
 
-  const isFeature = variant === "feature";
   return (
     <Link href={href} className={`group block no-underline ${className}`}>
-      <div
-        className={`relative overflow-hidden bg-surface-sunken ${isFeature ? "aspect-16/10" : "aspect-3/2"}`}
-      >
+      <div className="rule-grow relative aspect-4/3 overflow-hidden bg-surface-deep">
         <StoryImage
           image={article.featuredImage}
           slug={article.slug}
           morph={morph}
           preload={preload}
-          sizes={
-            isFeature
-              ? "(min-width: 1200px) 840px, (min-width: 900px) 66vw, 100vw"
-              : "(min-width: 1200px) 400px, (min-width: 900px) 33vw, (min-width: 600px) 50vw, 100vw"
-          }
+          sizes="(min-width: 1080px) 330px, (min-width: 900px) 33vw, (min-width: 600px) 50vw, 100vw"
         />
+        <span className="read-tag">
+          Read <ArrowRight size={11} aria-hidden="true" />
+        </span>
       </div>
       <div className="pt-space-3">
-        <Kicker name={article.category.name} tone={isFeature ? "brand" : "muted"} />
-        <h3 className={`mt-space-2 text-ink ${isFeature ? "text-headline-lg" : "text-heading-3"}`}>
+        <Heading className="text-heading-3 text-ink">
           <span className="link-underline">{article.headline}</span>
-        </h3>
-        {showSummary ?? isFeature ? (
-          <p
-            className={`mt-space-2 text-ink-secondary ${isFeature ? "text-standfirst line-clamp-3" : "line-clamp-2 text-body"}`}
-          >
-            {article.summary}
-          </p>
-        ) : null}
-        <Meta article={article} />
+        </Heading>
+        {showSummary ? <p className="mt-space-2 line-clamp-2 text-body-sm text-ink-secondary">{article.summary}</p> : null}
+        <Meta article={article} className="mt-space-2" />
       </div>
     </Link>
   );
 }
 
-/// The image slot always reserves its space (PRF-08) — an article with no
-/// featured image still holds the aspect box, in the sunken surface.
+/// The image slot always reserves its space — a story with no featured
+/// image still holds the aspect box on the sunken surface, marked with
+/// the section's initial so it never reads as broken.
 export function StoryImage({
   image,
   slug,
   morph,
   preload = false,
+  parallax = false,
   sizes,
   className = "",
 }: {
@@ -151,10 +170,20 @@ export function StoryImage({
   slug: string;
   morph: boolean;
   preload?: boolean;
+  /// Scroll-driven drift inside the frame (the lead picture) instead of
+  /// the hover zoom — the two both write `transform`, so it is one or
+  /// the other.
+  parallax?: boolean;
   sizes: string;
   className?: string;
 }) {
-  if (!image) return null;
+  if (!image) {
+    return (
+      <div className="absolute inset-0 grid place-items-center" aria-hidden="true">
+        <span className="text-wordmark text-[22px] text-ink/15">ANVAY</span>
+      </div>
+    );
+  }
   const img = (
     <Image
       src={image.url}
@@ -162,7 +191,7 @@ export function StoryImage({
       fill
       sizes={sizes}
       preload={preload}
-      className={`img-zoom object-cover ${className}`}
+      className={`${parallax ? "parallax-img" : "img-zoom"} object-cover ${className}`}
     />
   );
   if (!morph) return img;
@@ -173,38 +202,42 @@ export function StoryImage({
   );
 }
 
+/// The section pill — red outline for the lead (1a), muted otherwise.
 export function Kicker({
   name,
   tone = "muted",
 }: {
   name: string;
-  tone?: "muted" | "brand" | "light" | "gold";
+  tone?: "muted" | "brand" | "gold" | "bone";
 }) {
   const color =
     tone === "brand"
-      ? "text-brand"
-      : tone === "light"
-        ? "text-paper/80"
-        : tone === "gold"
-          ? "text-gold-deep"
-          : "text-ink-muted";
-  return <span className={`text-label ${color}`}>{name}</span>;
+      ? "border-brand text-brand"
+      : tone === "gold"
+        ? "border-gold-deep text-gold-deep"
+        : tone === "bone"
+          ? "border-bone/40 text-bone"
+          : "border-rule-strong text-ink-secondary";
+  return (
+    <span className={`inline-flex h-6 items-center rounded-pill border px-space-2 text-label ${color}`}>{name}</span>
+  );
 }
 
 export function Meta({
   article,
-  tone = "dark",
   compact = false,
+  inline = false,
+  className = "",
 }: {
   article: Pick<PublicArticleSummary, "byline" | "publishedAt">;
-  tone?: "dark" | "light";
   compact?: boolean;
+  inline?: boolean;
+  className?: string;
 }) {
-  const color = tone === "light" ? "text-paper/70" : "text-ink-muted";
   const byline = article.byline.trim();
   return (
-    <p className={`${compact ? "mt-space-1" : "mt-space-3"} text-meta ${color}`}>
-      {!compact && byline ? <>By {byline} · </> : null}
+    <p className={`text-caption text-ink-muted ${className}`}>
+      {!compact && !inline && byline ? <>{byline} · </> : null}
       <time dateTime={article.publishedAt}>{formatCardTime(article.publishedAt)}</time>
     </p>
   );

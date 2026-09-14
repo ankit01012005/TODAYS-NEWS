@@ -1,86 +1,87 @@
 @import "tailwindcss";
 
 /**
- * Design tokens — Direction A, Broadsheet (memory:
- * today-news-canonical-visual-direction), extended by the premium redesign
- * brief of 2026-09-11. The seven Direction A commitments (docs/20 §5) still
- * hold: Newsreader for editorial type, Inter for interface, warm neutrals,
- * rules as the structural device, square-cornered photography, #9B2C1E as
- * identity/signal (never a button), one system at three densities.
+ * Design tokens — the ANVAY TV brand system.
  *
- * What the brief adds on top: a warm-white/ivory ground instead of pure
- * white, the masthead red promoted to a brand/signal token, a champagne
- * gold for editorial curation, a 3-level depth scale used only at the
- * featured/floating levels (rules stay the default), motion/easing tokens,
- * and a larger display scale for the hero. Add new values here first, with
- * a citation, the way every other token was added.
+ * Source of truth: frontend/Anvay Frontend Wireframe3/design_handoff_anvay_frontend/
+ * README.md ("Design tokens") and brand/palette.jpeg. Six colours, nothing
+ * else earns a place: Sindoor Red carries urgency, Indigo Black carries
+ * authority, Haldi Gold carries warmth, Bone is the ground, Slate is
+ * support, Fresh Green is the live signal.
  *
- * "One system, three densities" (docs/19 §0): these tokens are shared by
- * the public site and both CMS areas without a separate theme.
+ * Rules that the tokens encode:
+ *   - Red is the wordmark, section rules, live/breaking, and the primary
+ *     CMS button. Never more than ~10% of a screen.
+ *   - Gold is for highlights on dark surfaces and for "changes requested"
+ *     / curation surfaces. It fails contrast on light (2.1:1) — text on a
+ *     gold wash uses gold-deep (#7A5A18), never gold itself.
+ *   - Green is live/published/verified only. Never decorative.
+ *   - Rules, not shadows, separate things. The depth scale is kept for CMS
+ *     modals and floating elements only.
+ *   - Square corners on photography and cards; pills only for tags,
+ *     states and the live dot.
+ *
+ * "One system, three densities": these tokens are shared by the reader
+ * site and both CMS areas without a separate theme.
  */
 @theme {
-  /* ---- Colour — docs/19 §1.1, warmed per the 2026-09-11 brief §2 ---- */
-  --color-ink: #14161a;
-  --color-ink-secondary: #3d434b;
-  --color-ink-muted: #5b6068;
-  --color-ink-faint: #878c94;
-  --color-rule: #e6e2da;
-  --color-rule-strong: #cfc9bf;
-  --color-paper: #fffdf9;
-  --color-surface: #f8f5ef;
-  --color-surface-sunken: #f0ece4;
-  --color-surface-deep: #e8e2d6;
+  /* ---- Colour ---- */
+  --color-ink: #12141c; /* Indigo Black — body text, CMS chrome, dark bands */
+  --color-ink-secondary: #3b404b;
+  --color-ink-muted: #5f6672; /* Slate — secondary text, captions, metadata */
+  --color-ink-faint: #878c94; /* archived, disabled */
+  --color-rule: rgba(18, 20, 28, 0.12);
+  --color-rule-strong: rgba(18, 20, 28, 0.28);
+  --color-paper: #ffffff; /* card white */
+  --color-surface: #f4f2ee; /* Bone — the page ground */
+  --color-surface-soft: #fcfbf8; /* CMS content ground */
+  --color-surface-sunken: #faf8f3; /* sunken panels */
+  --color-surface-deep: #ece9e2; /* skeletons, image placeholders */
+  --color-bone: #f4f2ee; /* text on dark surfaces */
 
-  /* Interactive accent for the CMS (buttons, active nav, focus). The public
-     site uses ink for interaction and the brand red only as signal. */
-  --color-accent: #2d5f8a;
-  --color-accent-hover: #234b6e;
-  --color-accent-wash: #eaf0f6;
+  /* Interactive accent — the CMS primary button is Sindoor Red. */
+  --color-accent: #c81e1e;
+  --color-accent-hover: #a81919;
+  --color-accent-wash: #fbedec;
 
-  /* Publication identity — masthead rule, wordmark, and (brief §2) signal
-     uses: live/breaking indicators, section rules, trending numerals.
-     Never on an interactive element (docs/19 §1.1, docs/20 §5 rule 6). */
-  --color-masthead: #9b2c1e;
-  --color-brand: #9b2c1e;
-  --color-brand-deep: #731f15;
-  --color-brand-wash: #f8ece9;
+  /* Publication identity and signal. */
+  --color-brand: #c81e1e;
+  --color-brand-deep: #a81919;
+  --color-brand-wash: #fbedec;
+  --color-masthead: #c81e1e;
 
-  /* Editorial curation accent — brief §2 / §10. Reserved for Editor's
-     picks and pull-quote details so it stays meaningful. */
-  --color-gold: #b3924f;
-  --color-gold-deep: #7a6030;
-  --color-gold-wash: #f6f0e2;
+  /* Haldi Gold — dark-surface highlights and curation surfaces. */
+  --color-gold: #e8a33d;
+  --color-gold-deep: #7a5a18;
+  --color-gold-wash: #fdf7ec;
 
-  --color-success: #3a6f4a;
-  --color-success-wash: #eaf2ec;
-  --color-attention: #8a6a2d;
-  --color-attention-wash: #f6f1e6;
-  --color-danger: #9b2c1e;
-  --color-danger-wash: #f7ebe9;
+  --color-success: #1f8a5b; /* Fresh Green — live, published, verified */
+  --color-success-wash: #edf6f1;
+  --color-live: #1f8a5b;
+  --color-attention: #7a5a18;
+  --color-attention-wash: #fdf7ec;
+  --color-danger: #c81e1e;
+  --color-danger-wash: #fbedec;
+  --color-info: #2d5f8a;
+  --color-info-wash: #eaf0f6;
 
-  /* Article state palette (docs/19 §1.1) — distinct from the general
-     semantic colours above where the state table gives a distinct value
-     (APPROVED's dot colour is its own hex, not `success`). */
-  --color-state-draft: #5b6068;
+  /* Article state palette — the seven RevisionState values. */
+  --color-state-draft: #5f6672;
   --color-state-in-review: #2d5f8a;
-  --color-state-changes-requested: #8a6a2d;
+  --color-state-changes-requested: #7a5a18;
   --color-state-approved: #2f5c3e;
-  --color-state-published: #3a6f4a;
-  --color-state-rejected: #9b2c1e;
+  --color-state-published: #1f8a5b;
+  --color-state-rejected: #c81e1e;
   --color-state-archived: #878c94;
 
-  /* ---- Fonts — docs/19 §1.2. CSS variables come from next/font/google
-     (app/fonts.ts); the fallback stacks are the documented ones. ---- */
-  --font-sans:
-    var(--font-inter), -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-serif:
-    var(--font-newsreader), Georgia, "Times New Roman", serif;
-  --font-mono: var(--font-ibm-plex-mono), ui-monospace, monospace;
+  /* ---- Fonts — Archivo for everything, IBM Plex Mono for timestamps,
+     versions and addresses (app/fonts.ts). `serif` is kept as an alias
+     so nothing in the tree can accidentally fall back to Georgia. ---- */
+  --font-sans: var(--font-archivo), "Archivo", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-archivo), "Archivo", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, Menlo, monospace;
 
-  /* ---- Spacing — docs/19 §1.3, 4px base. Named to match the doc exactly
-     (space-1..space-10) rather than remapping Tailwind's own numeric
-     scale, so `p-space-5` always means the documented 24px rhythm value
-     and ordinary `p-4` etc. remain available for one-off adjustments. ---- */
+  /* ---- Spacing — 4px base, named space-1..space-10 ---- */
   --spacing-space-1: 4px;
   --spacing-space-2: 8px;
   --spacing-space-3: 12px;
@@ -92,38 +93,32 @@
   --spacing-space-9: 96px;
   --spacing-space-10: 128px;
 
-  /* ---- Radius — docs/19 §1.3. Overrides Tailwind's own rounded-sm/md so
-     every use of them already matches the system; photography stays
-     radius-0 via Tailwind's built-in `rounded-none`. `pill` is for tags
-     and the live indicator only. ---- */
-  --radius-sm: 3px;
-  --radius-md: 6px;
+  /* ---- Radius — square by default; pills for tags/states/live dot. ---- */
+  --radius-sm: 2px;
+  --radius-md: 4px;
   --radius-pill: 999px;
 
-  /* ---- Depth — brief §27, layered on docs/19 §1.3's elevation. Public
-     surfaces default to rules (depth 0). depth-1 is a soft card, depth-2 a
-     featured story, depth-3 a floating interactive element (sticky bar,
-     popover). elevation-1/2 are kept for the CMS's existing modals. ---- */
-  --shadow-elevation-1: 0 1px 2px rgba(20, 22, 26, 0.06);
-  --shadow-elevation-2: 0 8px 24px rgba(20, 22, 26, 0.12);
-  --shadow-depth-1: 0 1px 2px rgba(20, 22, 26, 0.05), 0 1px 1px rgba(20, 22, 26, 0.03);
-  --shadow-depth-2: 0 14px 34px -16px rgba(20, 22, 26, 0.24), 0 2px 6px -2px rgba(20, 22, 26, 0.06);
-  --shadow-depth-3: 0 26px 60px -22px rgba(20, 22, 26, 0.32), 0 4px 12px -4px rgba(20, 22, 26, 0.08);
+  /* ---- Depth — CMS modals, toasts and floating bars only. ---- */
+  --shadow-elevation-1: 0 1px 2px rgba(18, 20, 28, 0.06);
+  --shadow-elevation-2: 0 8px 24px rgba(18, 20, 28, 0.14);
+  --shadow-depth-1: 0 1px 2px rgba(18, 20, 28, 0.05), 0 1px 1px rgba(18, 20, 28, 0.03);
+  --shadow-depth-2: 0 14px 34px -16px rgba(18, 20, 28, 0.26), 0 2px 6px -2px rgba(18, 20, 28, 0.06);
+  --shadow-depth-3: 0 26px 60px -22px rgba(18, 20, 28, 0.36), 0 4px 12px -4px rgba(18, 20, 28, 0.08);
 
-  /* ---- Motion — brief §17/§18. Quick, polished, never delaying content. ---- */
+  /* ---- Motion ---- */
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
 
-  /* ---- Layout — docs/19 §1.3 ---- */
-  --width-page-max: 1280px;
+  /* ---- Layout — 1020px reading grid on the front page (1a), 1440 for
+     the CMS shell. ---- */
+  --width-page-max: 1080px;
+  --width-page-wide: 1280px;
   --width-page-max-cms: 1440px;
-  --width-measure: 680px;
-  --width-measure-wide: 840px;
+  --width-measure: 660px;
+  --width-measure-wide: 820px;
 
-  /* ---- Breakpoints — docs/19 §1.3. xs (<600) is simply the unprefixed
-     base style under Tailwind's mobile-first defaults; sm/md/lg/xl below
-     replace Tailwind's own defaults with the documented ones. ---- */
+  /* ---- Breakpoints — the v1 set the handoff asks to keep. ---- */
   --breakpoint-sm: 600px;
   --breakpoint-md: 900px;
   --breakpoint-lg: 1200px;
@@ -134,148 +129,148 @@
   color-scheme: light;
 
   --duration-fast: 160ms;
-  --duration-base: 280ms;
-  --duration-slow: 560ms;
+  --duration-base: 260ms;
+  --duration-slow: 520ms;
 
   --z-nav: 40;
   --z-progress: 45;
   --z-overlay: 50;
-
-  /* Brief §26 — paper grain, felt rather than noticed. A tiled SVG noise
-     texture at 3% multiply; see body::before. */
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /**
- * Type scale — docs/19 §1.2, extended with display-0 (hero) and
- * headline-lg (feature card) per brief §13. Deliberately plain CSS classes
- * rather than Tailwind @theme font-size tokens: several steps have a
- * DIFFERENT value below `md` per §1.2's "Mobile adjustments" table, which
- * is most reliably expressed as an ordinary mobile-first override.
- *
- * Rule 5 (§1.2): `label` is the only uppercase style anywhere.
+ * Type scale — Archivo throughout. Plain CSS classes rather than @theme
+ * font-size tokens because several steps change value below `md`.
+ * `label` is the only uppercase style anywhere.
  */
 @layer utilities {
   .text-display-0 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 38px;
-    line-height: 1.05;
-    letter-spacing: -0.022em;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 36px;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
     text-wrap: balance;
   }
   .text-display-1 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 34px;
-    line-height: 40px;
-    letter-spacing: -0.018em;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 32px;
+    line-height: 1.06;
+    letter-spacing: -0.03em;
     text-wrap: balance;
   }
   .text-display-2 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 30px;
-    line-height: 36px;
-    letter-spacing: -0.012em;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 27px;
+    line-height: 1.1;
+    letter-spacing: -0.025em;
     text-wrap: balance;
   }
   .text-headline-lg {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 26px;
-    line-height: 32px;
-    letter-spacing: -0.01em;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 23px;
+    line-height: 1.16;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
   .text-body-lg {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 18px;
-    line-height: 30px;
+    font-size: 17px;
+    line-height: 28px;
   }
   @media (min-width: 900px) {
     .text-display-0 {
-      font-size: 64px;
+      font-size: 56px;
       line-height: 1.02;
     }
     .text-display-1 {
-      font-size: 56px;
-      line-height: 60px;
+      font-size: 48px;
+      line-height: 1.04;
     }
     .text-display-2 {
-      font-size: 44px;
-      line-height: 50px;
+      font-size: 38px;
+      line-height: 1.08;
     }
     .text-headline-lg {
-      font-size: 32px;
-      line-height: 38px;
+      font-size: 28px;
     }
     .text-body-lg {
-      font-size: 19px;
-      line-height: 32px;
+      font-size: 18px;
+      line-height: 30px;
     }
   }
   @media (min-width: 1200px) {
     .text-display-0 {
-      font-size: 76px;
+      font-size: 64px;
     }
   }
 
   .text-heading-1 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 34px;
-    line-height: 42px;
-    letter-spacing: -0.012em;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 30px;
+    line-height: 36px;
+    letter-spacing: -0.025em;
     text-wrap: balance;
   }
   .text-heading-2 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 27px;
-    line-height: 36px;
-    letter-spacing: -0.008em;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 24px;
+    line-height: 30px;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
   .text-heading-3 {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 22px;
-    line-height: 30px;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 19px;
+    line-height: 26px;
+    letter-spacing: -0.012em;
     text-wrap: balance;
   }
   .text-heading-4 {
     font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 18px;
-    line-height: 26px;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: -0.005em;
   }
   .text-headline-sm {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 18px;
-    line-height: 24px;
+    font-size: 16px;
+    line-height: 22px;
+    letter-spacing: -0.008em;
     text-wrap: balance;
   }
   .text-standfirst {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 21px;
-    line-height: 32px;
+    font-size: 18px;
+    line-height: 28px;
     text-wrap: pretty;
+  }
+  @media (min-width: 900px) {
+    .text-standfirst {
+      font-size: 19px;
+      line-height: 30px;
+    }
   }
   .text-body {
     font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 16px;
-    line-height: 26px;
+    font-size: 15px;
+    line-height: 24px;
   }
   .text-body-sm {
     font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 14px;
-    line-height: 22px;
+    font-size: 13.5px;
+    line-height: 20px;
   }
   .text-meta {
     font-family: var(--font-sans);
@@ -286,59 +281,109 @@
   .text-caption {
     font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 13px;
-    line-height: 20px;
+    font-size: 12.5px;
+    line-height: 18px;
   }
   .text-label {
     font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 12px;
+    font-size: 11px;
     line-height: 16px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
   }
-  .text-numeral {
-    font-family: var(--font-serif);
+  .text-label-lg {
+    font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 44px;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .text-mono {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 18px;
+    letter-spacing: 0.01em;
+  }
+  .text-mono-sm {
+    font-family: var(--font-mono);
+    font-weight: 400;
+    font-size: 11px;
+    line-height: 16px;
+  }
+  .text-numeral {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 40px;
     line-height: 1;
     letter-spacing: -0.03em;
     font-variant-numeric: tabular-nums;
   }
   @media (min-width: 900px) {
     .text-numeral {
-      font-size: 56px;
+      font-size: 52px;
     }
   }
+  .text-numeral-sm {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
   .text-wordmark {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    line-height: 0.9;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1;
+  }
+
+  /* ---- Rules — the brand's structural device ---- */
+  .masthead-rule {
+    height: 3px;
+    background: var(--color-brand);
+  }
+  .broadsheet-rule {
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-brand) 0 110px, var(--color-ink) 110px 100%);
+  }
+  .section-underline {
+    display: block;
+    width: 56px;
+    height: 3px;
+    background: var(--color-brand);
+  }
+
+  /* ---- Dark bands (Pulse ticker, handles bar, footer, CMS chrome) ---- */
+  .band-dark {
+    background: var(--color-ink);
+    color: var(--color-bone);
+  }
+  .band-dark *:focus-visible {
+    outline-color: var(--color-bone);
+  }
+  .band-dark ::selection {
+    background: rgba(232, 163, 61, 0.35);
+    color: var(--color-bone);
   }
 
   /* ---- Surfaces ---- */
   .surface-band {
-    background-image: linear-gradient(180deg, var(--color-paper) 0%, var(--color-surface) 100%);
+    background: var(--color-paper);
   }
   .surface-scrim {
     background-image: linear-gradient(
       180deg,
-      rgba(20, 22, 26, 0) 0%,
-      rgba(20, 22, 26, 0.08) 35%,
-      rgba(20, 22, 26, 0.72) 100%
-    );
-  }
-  .surface-scrim-strong {
-    background-image: linear-gradient(
-      180deg,
-      rgba(20, 22, 26, 0.05) 0%,
-      rgba(20, 22, 26, 0.35) 45%,
-      rgba(20, 22, 26, 0.86) 100%
+      rgba(18, 20, 28, 0) 0%,
+      rgba(18, 20, 28, 0.1) 35%,
+      rgba(18, 20, 28, 0.78) 100%
     );
   }
 
-  /* ---- Links — brief §18, animated underline that grows from the left.
+  /* ---- Links — animated underline that grows from the left.
      `.group:hover` lets a whole card drive its headline's underline. ---- */
   .link-underline {
     background-image: linear-gradient(currentColor, currentColor);
@@ -364,18 +409,22 @@
   .link-underline-2:hover {
     background-size: 100% 2px;
   }
+  .link-underline-brand {
+    background-image: linear-gradient(var(--color-brand), var(--color-brand));
+  }
 
-  /* ---- Imagery — brief §15. Slow, cinematic zoom; no bounce. ---- */
+  /* ---- Imagery — slow, quiet zoom; no bounce. ---- */
   .img-zoom {
-    transition: transform 900ms var(--ease-out-quart);
+    transition: transform 700ms var(--ease-out-quart);
     will-change: transform;
   }
   .group:hover .img-zoom,
   .group:focus-visible .img-zoom {
-    transform: scale(1.035);
+    transform: scale(1.03);
   }
 
-  /* ---- Navigation underline — brief §18 ---- */
+  /* ---- Navigation underline — 2px red, grows from the left on hover and
+     sits fully under the current section. ---- */
   .nav-link {
     position: relative;
   }
@@ -386,7 +435,7 @@
     right: 0;
     bottom: -1px;
     height: 2px;
-    background: currentColor;
+    background: var(--color-brand);
     transform: scaleX(0);
     transform-origin: left center;
     transition: transform var(--duration-base) var(--ease-out-quart);
@@ -397,8 +446,14 @@
   .nav-link[aria-selected="true"]::after {
     transform: scaleX(1);
   }
+  .nav-link-ink::after {
+    background: var(--color-ink);
+  }
+  .nav-link-bone::after {
+    background: var(--color-bone);
+  }
 
-  /* ---- Horizontal rails (mobile nav, Just In strip) ---- */
+  /* ---- Horizontal rails (mobile nav, shorts rail, tabs) ---- */
   .no-scrollbar {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -406,51 +461,38 @@
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
-  .fade-edges {
-    mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent 100%);
-  }
-
-  /* ---- Sticky-nav mini wordmark — fades in once the masthead has
-     scrolled away, driven by the document scroll timeline (no JS). It is
-     scroll-linked state rather than motion, so it stays on under reduced
-     motion; browsers without scroll timelines simply never show it. ---- */
-  .mini-wordmark {
-    opacity: 0;
-    transform: translateY(calc(-50% + 3px));
-    pointer-events: none;
-  }
-  @supports (animation-timeline: scroll()) {
-    .mini-wordmark {
-      animation: mini-wordmark-in linear both;
-      animation-timeline: scroll(root);
-      animation-range: 120px 240px;
-    }
-  }
-  @keyframes mini-wordmark-in {
-    to {
-      opacity: 1;
-      transform: translateY(-50%);
-      pointer-events: auto;
+  @media (max-width: 899px) {
+    .fade-edges {
+      mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent 100%);
     }
   }
 
-  /* ---- Live indicator — brief §7, a restrained pulse. ---- */
+  /* ---- Live indicator — 8px dot with a slow expanding ring. Green by
+     default (live/published); `.live-dot-red` for breaking. ---- */
   .live-dot {
     position: relative;
     display: inline-block;
     width: 8px;
     height: 8px;
     border-radius: 999px;
-    background: var(--color-brand);
+    background: var(--live-color, var(--color-live));
+    flex: none;
   }
   .live-dot::before {
     content: "";
     position: absolute;
     inset: -4px;
     border-radius: 999px;
-    border: 1.5px solid var(--color-brand);
+    border: 1.5px solid var(--live-color, var(--color-live));
     opacity: 0;
     animation: live-ring 2.4s var(--ease-out-quart) infinite;
+  }
+  .live-dot-red {
+    --live-color: var(--color-brand);
+  }
+  .live-dot-sm {
+    width: 6px;
+    height: 6px;
   }
   @keyframes live-ring {
     0% {
@@ -467,14 +509,76 @@
     }
   }
 
-  /* ---- Skeletons — brief §22 ---- */
+  /* ---- The TV hub's play button breathes a slow red ring, like the live dot. ---- */
+  .play-ring {
+    position: relative;
+  }
+  .play-ring::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+    border: 2px solid var(--color-brand);
+    opacity: 0;
+    animation: live-ring 2.6s var(--ease-out-quart) infinite;
+  }
+
+  /* ---- The Pulse band — a horizontal ticker of the newest headlines.
+     Two copies of the list scroll left continuously; hover or focus
+     pauses it. The duration is set inline from the item count so the
+     speed stays constant regardless of how many stories there are. ---- */
+  .pulse-track {
+    display: flex;
+    width: max-content;
+    animation: pulse-scroll var(--pulse-duration, 60s) linear infinite;
+  }
+  .pulse-band:hover .pulse-track,
+  .pulse-band:focus-within .pulse-track {
+    animation-play-state: paused;
+  }
+  @keyframes pulse-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* ---- The pulse line under the wordmark — draws itself once on load,
+     then a faint heartbeat on the live variant. ---- */
+  .pulse-draw {
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: pulse-draw 1.1s var(--ease-out-quart) 120ms forwards;
+  }
+  @keyframes pulse-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  .pulse-beat {
+    transform-origin: 50% 60%;
+    animation: pulse-beat 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-beat {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  /* ---- Skeletons ---- */
   .skeleton {
-    background-color: var(--color-surface-sunken);
+    background-color: var(--color-surface-deep);
     background-image: linear-gradient(
       90deg,
-      var(--color-surface-sunken) 0%,
-      var(--color-surface) 45%,
-      var(--color-surface-sunken) 90%
+      var(--color-surface-deep) 0%,
+      var(--color-surface-sunken) 45%,
+      var(--color-surface-deep) 90%
     );
     background-size: 300% 100%;
     animation: skeleton-shimmer 1.6s ease-in-out infinite;
@@ -488,71 +592,38 @@
     }
   }
 
-  /* ---- Drop cap — brief §12/§13 ---- */
-  .drop-cap > p:first-of-type::first-letter {
-    font-family: var(--font-serif);
-    font-weight: 600;
-    font-size: 3.6em;
-    line-height: 0.78;
-    float: left;
-    padding-right: 0.1em;
-    margin-top: 0.07em;
-    color: var(--color-ink);
-  }
-
-  /* ---- Subtle 3D — brief §16. The tilt values are written by
-     components/motion/TiltCard.tsx as CSS custom properties; the inner
-     layer moves slightly independently of the outer card. ---- */
-  .tilt {
-    transform: perspective(1400px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
-    transform-style: preserve-3d;
-    transition: transform 700ms var(--ease-out-quart);
-  }
-  .tilt[data-tilting="true"] {
-    transition: transform 140ms ease-out;
-  }
-  .tilt-layer {
-    transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
-    transition: transform 700ms var(--ease-out-quart);
-  }
-  .tilt[data-tilting="true"] .tilt-layer {
-    transition: transform 140ms ease-out;
-  }
-
-  /* ---- Scroll reveal — brief §17. Pure CSS scroll-driven animation:
-     nothing is hidden for browsers without support, nothing runs when
-     reduced motion is requested, and content already in view at load is
-     at its end state (no LCP cost). ---- */
+  /* ---- Scroll reveal — nothing is hidden without JavaScript; the
+     runtime (components/motion/RevealRuntime.tsx) prepares only offscreen
+     items and reveals each once. ---- */
   @media (prefers-reduced-motion: no-preference) {
-    @supports (animation-timeline: view()) {
-      .reveal {
-        animation: reveal-up linear both;
-        animation-timeline: view();
-        animation-range: entry 0% entry 32%;
-      }
-      .reveal-stagger > :nth-child(2) {
-        animation-range: entry 6% entry 38%;
-      }
-      .reveal-stagger > :nth-child(3) {
-        animation-range: entry 12% entry 44%;
-      }
-      .reveal-stagger > :nth-child(n + 4) {
-        animation-range: entry 18% entry 50%;
-      }
-      .parallax-hero {
-        animation: parallax-down linear both;
-        animation-timeline: scroll();
-        animation-range: 0 60vh;
-      }
+    .reveal-prepared {
+      opacity: 0;
+      transform: translateY(12px);
+      transition:
+        opacity 460ms var(--ease-out-quart),
+        transform 460ms var(--ease-out-quart);
+    }
+    .reveal-prepared.reveal-visible {
+      opacity: 1;
+      transform: none;
+    }
+    .reveal-stagger > .reveal-prepared:nth-child(2) {
+      transition-delay: 60ms;
+    }
+    .reveal-stagger > .reveal-prepared:nth-child(3) {
+      transition-delay: 120ms;
+    }
+    .reveal-stagger > .reveal-prepared:nth-child(4) {
+      transition-delay: 180ms;
+    }
+    .reveal-stagger > .reveal-prepared:nth-child(n + 5) {
+      transition-delay: 240ms;
     }
   }
 
-  /* ---- Reading progress — brief §14. A 2px bar at the top of the
-     viewport whose width is the document scroll position, driven entirely
-     by the scroll timeline: no scroll listener, no layout reads. It is
-     decorative (aria-hidden); browsers without scroll timelines simply
-     never show it. Reduced motion keeps it — it is scroll-linked state,
-     not motion. ---- */
+  /* ---- Reading progress — a 2px red bar whose width is the document
+     scroll position, driven by the scroll timeline (no listener).
+     Decorative; browsers without scroll timelines never show it. ---- */
   .reading-progress {
     position: fixed;
     top: 0;
@@ -579,23 +650,283 @@
       transform: scaleX(1);
     }
   }
-  @keyframes reveal-up {
+
+  /* ---- Sticky-nav mini wordmark — fades in once the masthead has
+     scrolled away, scroll-linked so it stays on under reduced motion. ---- */
+  .mini-wordmark {
+    opacity: 0;
+    transform: translateY(calc(-50% + 3px));
+    pointer-events: none;
+  }
+  @supports (animation-timeline: scroll()) {
+    .mini-wordmark {
+      animation: mini-wordmark-in linear both;
+      animation-timeline: scroll(root);
+      animation-range: 90px 170px;
+    }
+  }
+  @keyframes mini-wordmark-in {
+    to {
+      opacity: 1;
+      transform: translateY(-50%);
+      pointer-events: auto;
+    }
+  }
+
+  /* ---- Quiet entrance for panels that mount client-side (dialogs,
+     inline confirms, stale-version notices). ---- */
+  .enter-rise {
+    animation: enter-rise 260ms var(--ease-out-quart) both;
+  }
+  @keyframes enter-rise {
     from {
       opacity: 0;
-      transform: translateY(16px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
       transform: none;
     }
   }
-  @keyframes parallax-down {
+
+  /* ---- Public article body — the six block types. ---- */
+  .article-title {
+    max-width: 22ch;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: clamp(2rem, 4.4vw, 3.4rem);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .public-article-body {
+    font-size: clamp(1.0625rem, 1.25vw, 1.15rem);
+    line-height: 1.72;
+  }
+  .public-article-body p {
+    text-wrap: pretty;
+  }
+
+  /* ---- Static pages (About, Contact, Editorial policy, Privacy) — the
+     long-form copy's own headings, links and lists. Plain rules rather
+     than arbitrary variants, because the type classes above are CSS, not
+     Tailwind utilities. ---- */
+  .static-copy h2 {
+    margin-top: 40px;
+    scroll-margin-top: 96px;
+    font-family: var(--font-sans);
+    font-weight: 800;
+    font-size: 24px;
+    line-height: 30px;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+  .static-copy h2:first-child {
+    margin-top: 0;
+  }
+  .static-copy h3 {
+    margin-top: 24px;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 24px;
+    color: var(--color-ink);
+  }
+  .static-copy p + p {
+    margin-top: 16px;
+  }
+  .static-copy a {
+    color: var(--color-ink);
+    text-decoration: underline;
+    text-decoration-color: rgba(200, 30, 30, 0.55);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+    transition: text-decoration-color var(--duration-fast) ease;
+  }
+  .static-copy a:hover {
+    text-decoration-color: var(--color-brand);
+  }
+  .static-copy ul {
+    list-style: square;
+    padding-left: 24px;
+  }
+  .static-copy ul ::marker {
+    color: var(--color-brand);
+  }
+  .static-copy em {
+    font-style: italic;
+  }
+
+  /* ---- CMS: the composer's block gutter and the flagged paragraph. ---- */
+  .block-flagged {
+    background: var(--color-brand-wash);
+  }
+
+  /* ---- Cards — a quiet lift on hover, and a Sindoor rule that grows in
+     along the top edge. The lift is 2px, the rule 2px: enough to answer
+     the cursor, never enough to bounce. ---- */
+  .card-lift {
+    transition:
+      transform var(--duration-base) var(--ease-out-quart),
+      box-shadow var(--duration-base) var(--ease-out-quart);
+  }
+  .card-lift:hover,
+  .card-lift:focus-within {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-depth-2);
+  }
+  .rule-grow {
+    position: relative;
+  }
+  .rule-grow::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--color-brand);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--duration-slow) var(--ease-out-expo);
+    z-index: 1;
+  }
+  .rule-grow:hover::before,
+  .rule-grow:focus-within::before,
+  .group:hover > .rule-grow::before {
+    transform: scaleX(1);
+  }
+
+  /* ---- Section rules draw themselves in when the section is revealed
+     (the scroll-reveal runtime adds .reveal-visible). Without JavaScript
+     the rule is simply there. ---- */
+  .rule-draw {
+    transform-origin: left center;
+    transition: transform 700ms var(--ease-out-expo);
+  }
+  .reveal-prepared .rule-draw {
+    transform: scaleX(0);
+  }
+  .reveal-visible .rule-draw {
+    transform: scaleX(1);
+  }
+
+  /* ---- Lead picture parallax — the image drifts a few percent as the
+     page scrolls past it, inside an overflow-hidden frame. Scroll-driven
+     (no listener); browsers without scroll timelines get a still image. ---- */
+  @media (prefers-reduced-motion: no-preference) {
+    @supports (animation-timeline: view()) {
+      .parallax-img {
+        animation: parallax-drift linear both;
+        animation-timeline: view();
+        animation-range: entry 0% exit 100%;
+      }
+    }
+  }
+  @keyframes parallax-drift {
     from {
-      transform: translateY(-3%) scale(1.08);
+      transform: translateY(-6%) scale(1.12);
     }
     to {
-      transform: translateY(3%) scale(1.08);
+      transform: translateY(6%) scale(1.12);
     }
+  }
+
+  /* ---- Sticky nav — earns a hairline shadow once the page has scrolled,
+     driven by the scroll timeline. ---- */
+  @supports (animation-timeline: scroll()) {
+    .nav-elevate {
+      animation: nav-elevate linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 160px;
+    }
+  }
+  @keyframes nav-elevate {
+    to {
+      box-shadow: 0 8px 24px -18px rgba(18, 20, 28, 0.45);
+    }
+  }
+
+  /* ---- Pulse band — the ticker fades at both edges instead of clipping. ---- */
+  .pulse-fade {
+    mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
+  }
+
+  /* ---- A tick that pops when a checklist line is satisfied. ---- */
+  .tick-pop {
+    animation: tick-pop 420ms var(--ease-out-expo) both;
+  }
+  @keyframes tick-pop {
+    0% {
+      transform: scale(0.4);
+      opacity: 0;
+    }
+    60% {
+      transform: scale(1.18);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  /* ---- Story picture hover — a red "Read" tag slides in from the
+     bottom-left corner of the frame. ---- */
+  .read-tag {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 24px;
+    padding: 0 8px;
+    background: var(--color-brand);
+    color: #fff;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transform: translateY(100%);
+    transition: transform var(--duration-base) var(--ease-out-quart);
+    pointer-events: none;
+  }
+  .group:hover .read-tag,
+  .group:focus-visible .read-tag {
+    transform: translateY(0);
+  }
+
+  /* ---- Primary CTA sheen — a single light pass on hover. ---- */
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-sheen::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -40%;
+    width: 40%;
+    background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+    transform: skewX(-18deg);
+    transition: left 600ms var(--ease-out-quart);
+    pointer-events: none;
+  }
+  .btn-sheen:hover::after {
+    left: 120%;
+  }
+
+  /* ---- Native <dialog> ---- */
+  .dialog-shell::backdrop {
+    background: rgba(18, 20, 28, 0.55);
+    backdrop-filter: blur(2px);
+  }
+  .dialog-shell[open] {
+    animation: enter-rise 220ms var(--ease-out-quart) both;
   }
 }
 
@@ -612,48 +943,26 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Brief §26 — grain overlay, desktop only (brief §20: expensive effects
-   are disabled on mobile). pointer-events: none so it never intercepts. */
-@media (min-width: 900px) and (prefers-reduced-transparency: no-preference) {
-  body:has(> .public-site)::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background-image: var(--grain);
-    opacity: 0.03;
-    mix-blend-mode: multiply;
-  }
-}
-@media print {
-  body::before {
-    display: none;
-  }
-}
-
 ::selection {
   background: var(--color-brand-wash);
   color: var(--color-ink);
 }
 
-/* docs/19 §1.3 — 2px outline, 2px offset, applied to every interactive
-   element. Never removed, never replaced by a colour change alone
-   (A11Y-05). Prefer Tailwind's focus-visible:outline-* utilities directly
-   in components; this is the fallback for anything that can't use them. */
+/* 2px outline, 2px offset, applied to every interactive element. Never
+   removed, never replaced by a colour change alone. */
 *:focus-visible {
   outline: 2px solid var(--color-ink);
   outline-offset: 2px;
 }
 
-/* ---- Route transitions — brief §19, React <ViewTransition>. A quick
-   crossfade with a small rise for page content; a shared-element morph for
-   a story's image between card and article hero. ---- */
+/* ---- Route transitions — React <ViewTransition>. A quick crossfade with
+   a small rise for page content; a shared-element morph for a story's
+   image between card and article hero. ---- */
 ::view-transition-old(.page-fade) {
   animation: 120ms ease-in both vt-fade reverse;
 }
 ::view-transition-new(.page-fade) {
-  animation: 200ms var(--ease-out-quart) both vt-fade;
+  animation: 220ms var(--ease-out-quart) both vt-fade;
 }
 ::view-transition-group(.morph) {
   animation-duration: 380ms;
@@ -667,412 +976,10 @@ body {
     opacity: 1;
   }
 }
-@keyframes vt-rise {
-  from {
-    transform: translateY(10px);
-  }
-  to {
-    transform: none;
-  }
-}
 
-/* ------------------------------------------------------------------
-   Atlas Edition public theme
-
-   These tokens live on the public route wrapper. The staff application
-   continues to inherit the original system tokens from :root/@theme.
-   ------------------------------------------------------------------ */
-.public-site {
-  --color-paper: #fffefa;
-  --color-surface: #f7f5ef;
-  --color-surface-sunken: #eef0e9;
-  --color-surface-deep: #e8eeea;
-  --color-ink: #152529;
-  --color-ink-secondary: #526166;
-  --color-ink-muted: #657176;
-  --color-ink-faint: #849095;
-  --color-rule: #d9dfda;
-  --color-rule-strong: #b8c2bd;
-  --color-brand: #c5422e;
-  --color-brand-deep: #9c3021;
-  --color-brand-wash: #f8e9e3;
-  --color-gold: #d4b778;
-  --color-gold-deep: #765d29;
-  --color-gold-wash: #f3ecdc;
-  --public-petrol: #103c42;
-  --duration-fast: 180ms;
-  --duration-base: 200ms;
-  --duration-slow: 420ms;
-  --ease-out-quart: cubic-bezier(0.22, 1, 0.36, 1);
-  min-height: 100vh;
-  background: var(--color-surface);
-  color: var(--color-ink);
-}
-
-.public-site .text-display-0 {
-  font-size: clamp(2.15rem, 3.75vw, 3.5rem);
-  line-height: 1.02;
-  letter-spacing: -0.028em;
-}
-
-.public-site .text-display-1 {
-  font-size: clamp(2.15rem, 3.7vw, 3.75rem);
-  line-height: 1.04;
-  letter-spacing: -0.025em;
-}
-
-.public-site .text-display-2 {
-  font-size: clamp(2rem, 3vw, 3rem);
-  line-height: 1.08;
-}
-
-.public-site .text-heading-3 {
-  line-height: 1.25;
-}
-
-.public-site .text-meta time,
-.public-site time.text-meta {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.015em;
-}
-
-.public-masthead {
-  background: var(--color-paper);
-}
-
-.public-wordmark {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  color: var(--color-ink);
-  font-family: var(--font-serif);
-  font-size: clamp(2.65rem, 5vw, 4.5rem);
-  font-weight: 600;
-  letter-spacing: -0.055em;
-  line-height: 0.85;
-}
-
-.wordmark-signature {
-  width: 0.18em;
-  height: 0.58em;
-  margin-bottom: 0.05em;
-  margin-left: 0.13em;
-  background: var(--color-brand);
-  transform: skewX(-12deg);
-}
-
-.editorial-rule {
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-brand) 0 84px, var(--color-ink) 84px 100%);
-}
-
-.public-site .surface-band {
-  background: var(--color-paper);
-}
-
-.public-site .nav-link::after {
-  background: var(--color-brand);
-  transition-duration: 180ms;
-}
-
-.public-site .link-underline {
-  transition-duration: 180ms;
-}
-
-.public-site .img-zoom {
-  transition-duration: 420ms;
-}
-
-.public-site .group:hover .img-zoom,
-.public-site .group:focus-visible .img-zoom {
-  transform: scale(1.025);
-}
-
-.lead-media-shell {
-  isolation: isolate;
-  overflow: visible;
-  box-shadow: 0 16px 32px -22px rgba(21, 37, 41, 0.45);
-}
-
-.lead-media-shell::before,
-.lead-media-shell::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  border: 1px solid var(--color-rule-strong);
-  background: var(--color-paper);
-}
-
-.lead-media-shell::before {
-  transform: translate(7px, 7px) rotate(0.35deg);
-}
-
-.lead-media-shell::after {
-  z-index: -1;
-  transform: translate(3px, 3px) rotate(-0.22deg);
-}
-
-.lead-media-shell > * {
-  overflow: hidden;
-}
-
-.daily-briefing {
-  display: grid;
-  gap: 28px;
-}
-
-.daily-briefing > * + * {
-  border-top: 1px solid var(--color-rule);
-  padding-top: 24px;
-}
-
-.world-stage {
-  position: relative;
-  display: grid;
-  overflow: hidden;
-  background: var(--public-petrol);
-  box-shadow: 0 24px 54px -34px rgba(3, 20, 23, 0.7);
-}
-
-.world-stage::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 86px;
-  height: 3px;
-  background: var(--color-gold);
-}
-
-.world-stage-copy {
-  position: relative;
-  z-index: 3;
-  padding: clamp(28px, 5vw, 64px);
-}
-
-.world-stage-visual {
-  display: grid;
-  min-height: 300px;
-  place-items: center;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(255, 254, 250, 0.09), transparent 55%),
-    linear-gradient(140deg, rgba(255, 255, 255, 0.02), transparent 45%);
-}
-
-.world-stage-link {
-  border-bottom: 1px solid rgba(255, 254, 250, 0.46);
-  padding-bottom: 3px;
-}
-
-.world-stage-link span {
-  transition: transform 180ms var(--ease-out-quart);
-}
-
-.world-stage-link:hover span,
-.world-stage-link:focus-visible span {
-  transform: translateX(3px);
-}
-
-.world-meta p {
-  color: rgba(255, 254, 250, 0.58);
-}
-
-.atlas-globe {
-  position: relative;
-  width: min(100%, 520px);
-  aspect-ratio: 1;
-  contain: layout paint size;
-}
-
-.atlas-globe-fallback,
-.atlas-globe-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.atlas-globe-fallback {
-  inset: 9.5%;
-  width: 81%;
-  height: 81%;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  border-radius: 50%;
-  background: radial-gradient(circle at 33% 26%, #fff 0, var(--color-paper) 48%, #d9ddd4 100%);
-  box-shadow: 0 24px 30px -22px rgba(3, 20, 23, 0.85);
-}
-
-.atlas-globe-fallback::before {
-  content: "";
-  position: absolute;
-  inset: 12% 8%;
-  opacity: 0.72;
-  background-image: radial-gradient(circle, var(--public-petrol) 0 1.15px, transparent 1.35px);
-  background-size: 8px 8px;
-  clip-path: polygon(4% 18%, 33% 8%, 47% 21%, 43% 38%, 58% 35%, 70% 12%, 96% 24%, 82% 50%, 93% 68%, 70% 82%, 59% 68%, 48% 94%, 30% 76%, 34% 52%, 11% 47%);
-}
-
-.atlas-meridian,
-.atlas-latitude {
-  position: absolute;
-  inset: 0 31%;
-  border: 1px solid rgba(212, 183, 120, 0.92);
-  border-radius: 50%;
-}
-
-.atlas-latitude {
-  inset: 22% 0;
-  border-color: rgba(16, 60, 66, 0.14);
-}
-
-.atlas-latitude-one {
-  transform: translateY(-18%) rotateX(64deg);
-}
-
-.atlas-latitude-two {
-  transform: translateY(18%) rotateX(64deg);
-}
-
-.atlas-globe-canvas {
-  z-index: 2;
-  touch-action: pan-y;
-}
-
-.editorial-auto-grid,
-.typography-desk {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
-  gap: 28px;
-}
-
-.typography-desk > * {
-  border-top: 1px solid var(--color-rule);
-  padding-top: 18px;
-}
-
-.desk-section-sage,
-.desk-roundup {
-  background: var(--color-surface-deep);
-}
-
-.desk-section-sage {
-  margin-inline: -16px;
-  padding: 28px 16px;
-}
-
-.article-title {
-  max-width: 20ch;
-  font-family: var(--font-serif);
-  font-size: clamp(2.25rem, 4.6vw, 4rem);
-  font-weight: 600;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
-}
-
-.public-article-body {
-  font-size: clamp(1.125rem, 1.4vw, 1.25rem);
-  line-height: 1.72;
-}
-
-.public-footer {
-  border-top: 3px solid var(--color-brand);
-  background: var(--public-petrol);
-  color: var(--color-paper);
-}
-
-.public-footer-wordmark {
-  font-family: var(--font-serif);
-  font-size: clamp(2.5rem, 4vw, 3.75rem);
-  font-weight: 600;
-  letter-spacing: -0.045em;
-  line-height: 0.95;
-}
-
-.world-stage *:focus-visible,
-.public-footer *:focus-visible {
-  outline-color: var(--color-paper);
-}
-
-@media (min-width: 900px) {
-  .daily-briefing {
-    grid-template-columns: 1.15fr 0.9fr 1fr 1fr;
-    align-items: start;
-    gap: 0;
-  }
-
-  .daily-briefing > * {
-    min-width: 0;
-    padding-inline: 24px;
-  }
-
-  .daily-briefing > *:first-child {
-    padding-left: 0;
-  }
-
-  .daily-briefing > *:last-child {
-    padding-right: 0;
-  }
-
-  .daily-briefing > * + * {
-    border-top: 0;
-    border-left: 1px solid var(--color-rule);
-    padding-top: 0;
-  }
-
-  .world-stage {
-    grid-template-columns: minmax(0, 1.08fr) minmax(380px, 0.92fr);
-    align-items: stretch;
-  }
-
-  .desk-section-sage {
-    margin-inline: -24px;
-    padding: 36px 24px;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .public-site .reveal {
-    animation: none;
-  }
-
-  .public-site .reveal-prepared {
-    opacity: 0;
-    transform: translateY(10px);
-    transition:
-      opacity 380ms var(--ease-out-quart),
-      transform 380ms var(--ease-out-quart);
-  }
-
-  .public-site .reveal-prepared.reveal-visible {
-    opacity: 1;
-    transform: none;
-  }
-
-  .public-site .reveal-stagger > .reveal-prepared:nth-child(2) {
-    transition-delay: 40ms;
-  }
-
-  .public-site .reveal-stagger > .reveal-prepared:nth-child(3) {
-    transition-delay: 80ms;
-  }
-
-  .public-site .reveal-stagger > .reveal-prepared:nth-child(4) {
-    transition-delay: 120ms;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .atlas-globe-canvas {
-    display: none;
-  }
-}
-
-/* ---- Reduced motion — brief §17/§29. Every animation and transition
-   collapses; view transitions are disabled entirely. ---- */
+/* ---- Reduced motion — every animation and transition collapses; view
+   transitions are disabled entirely. Scroll-linked state (progress bar,
+   mini wordmark) is kept: it is position, not motion. ---- */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -1084,9 +991,22 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .pulse-track {
+    animation: none !important;
+  }
+  .pulse-draw {
+    stroke-dashoffset: 0;
+  }
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation: none !important;
+  }
+}
+
+@media print {
+  .reading-progress,
+  .pulse-band {
+    display: none;
   }
 }
