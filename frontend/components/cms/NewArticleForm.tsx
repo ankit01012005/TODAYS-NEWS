@@ -7,6 +7,7 @@ import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -18,6 +19,7 @@ const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /// editor is never written to the database.
 export function NewArticleForm({ categories }: { categories: CategoryView[] }) {
   const router = useRouter();
+  const { success } = useToast();
   const [slug, setSlug] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +44,7 @@ export function NewArticleForm({ categories }: { categories: CategoryView[] }) {
         return;
       }
       const article = (await res.json()) as ArticleDetailView;
+      success("Draft created", `/${article.slug} is yours to write.`);
       router.push(`/staff/articles/${article.id}/edit`);
     } finally {
       setSubmitting(false);

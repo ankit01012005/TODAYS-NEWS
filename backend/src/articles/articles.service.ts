@@ -135,16 +135,20 @@ export async function listArticles(
   // on open_marker, which is null for REJECTED/ARCHIVED revisions and so
   // could never represent those states here (see ArticleListItemView's
   // doc-comment for why that matters).
-  const latestRevisions = await prisma.articleRevision.findMany({
-    where: { articleId: { in: articles.map((a) => a.id) } },
-    orderBy: { createdAt: "desc" },
-    distinct: ["articleId"],
-  });
-  const publishedRevisions = await prisma.articleRevision.findMany({
-    where: {
-      id: { in: articles.map((a) => a.currentPublishedRevisionId).filter((id): id is string => id !== null) },
-    },
-  });
+  // Both depend only on the article list, so they share one round trip
+  // — the database is ~250 ms away and this backs every CMS list view.
+  const [latestRevisions, publishedRevisions] = await Promise.all([
+    prisma.articleRevision.findMany({
+      where: { articleId: { in: articles.map((a) => a.id) } },
+      orderBy: { createdAt: "desc" },
+      distinct: ["articleId"],
+    }),
+    prisma.articleRevision.findMany({
+      where: {
+        id: { in: articles.map((a) => a.currentPublishedRevisionId).filter((id): id is string => id !== null) },
+      },
+    }),
+  ]);
   const latestByArticleId = new Map(latestRevisions.map((r) => [r.articleId, r]));
   const publishedById = new Map(publishedRevisions.map((r) => [r.id, r]));
 
@@ -231,5 +235,63 @@ export async function saveArticleContent(
     }
 
     return tx.articleRevision.findUniqueOrThrow({ where: { id: revision.id } });
+  });
+}
+
+export interface DeletedArticleSummary {
+  id: string;
+  slug: string;
+  headline: string | null;
+  revisionCount: number;
+}
+
+/// OQ-12, option (c): the rare, deliberate, recorded hard delete. Admin
+/// only (route capability article:delete). Refused while the story is
+/// LIVE — withdrawing is the act that takes something away from readers
+/// (T12, with its reason and cache purge); this only ever removes what
+/// nobody is being served.
+///
+/// Everything belonging to the article goes: citations, review decisions,
+/// revisions, the article row. The audit rows about it stay (append-only,
+/// SEC-11) with their article pointer cleared — see migration
+/// 20260914120000_recorded_hard_delete for the narrow door this opens in
+/// the append-only triggers, and why SET LOCAL scopes it to this
+/// transaction alone. The deletion itself is the last audit row written.
+export async function deleteArticlePermanently(user: AuthenticatedUser, articleId: string): Promise<DeletedArticleSummary> {
+  return prisma.$transaction(async (tx) => {
+    const article = await tx.article.findUnique({ where: { id: articleId } });
+    if (!article) throw new NotFoundError("No such article");
+    if (article.publicationStatus === "LIVE" || article.currentPublishedRevisionId) {
+      throw new ConflictError("This story is live. Withdraw it first, then delete it.");
+    }
+
+    const revisions = await tx.articleRevision.findMany({
+      where: { articleId },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, headline: true },
+    });
+    const revisionIds = revisions.map((r) => r.id);
+
+    await tx.$executeRawUnsafe("SET LOCAL today_news.purge_article = 'on'");
+    await tx.articleSource.deleteMany({ where: { articleRevisionId: { in: revisionIds } } });
+    await tx.reviewDecision.deleteMany({ where: { articleRevisionId: { in: revisionIds } } });
+    await tx.articleRevision.deleteMany({ where: { articleId } });
+    // ON DELETE SET NULL on audit_logs.article_id runs here.
+    await tx.article.delete({ where: { id: articleId } });
+
+    await writeAudit(tx, {
+      actorUserId: user.id,
+      entityType: "Article",
+      entityId: articleId,
+      action: "DELETE",
+      metadata: {
+        slug: article.slug,
+        headline: revisions[0]?.headline ?? null,
+        publicationStatus: article.publicationStatus,
+        revisionCount: revisions.length,
+      },
+    });
+
+    return { id: articleId, slug: article.slug, headline: revisions[0]?.headline ?? null, revisionCount: revisions.length };
   });
 }

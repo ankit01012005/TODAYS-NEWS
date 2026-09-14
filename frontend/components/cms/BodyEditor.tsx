@@ -7,6 +7,7 @@ import { MediaAssetView } from "@/lib/api/cms-types";
 import { uploadMediaFile } from "@/lib/api/upload-media";
 import { Button } from "./Button";
 import { TextAreaField, TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 interface BodyEditorProps {
   blocks: BodyBlock[];
@@ -209,6 +210,7 @@ function ImageBlockEditor({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const { success, error: toastError } = useToast();
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -218,6 +220,9 @@ function ImageBlockEditor({
       const asset = await uploadMediaFile(file);
       onMediaUploaded(asset);
       onChange({ ...block, mediaId: asset.id, url: asset.url });
+      success("Image uploaded", `${asset.originalFilename ?? "Image"} is in this block — add alt text.`);
+    } catch (err) {
+      toastError("Upload failed", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

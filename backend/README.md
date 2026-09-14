@@ -78,9 +78,9 @@ refuses to start with a missing or malformed required value.
 | `SESSION_TTL_HOURS`    | No                  | `12`                 | |
 | `APP_BASE_URL`         | No (yes in prod)    | `http://localhost:3000` | The Next.js app's public origin — used in emailed links and to reach `/api/revalidate`. |
 | `REVALIDATE_SECRET`    | Production          | —                    | Shared with the frontend; 32+ random characters. Lets the API purge the public page cache on publish/withdraw. |
-| `MAIL_TRANSPORT`       | No                  | `console` (dev) / `smtp` (prod) | `console` prints emails (links included) to stdout. |
+| `MAIL_TRANSPORT`       | No                  | `smtp` if `SMTP_URL` is set or in prod, else `console` | `console` prints emails (links included) to stdout instead of sending. |
 | `SMTP_URL`             | With `smtp`         | —                    | `smtps://USER:PASSWORD@host:465` or `smtp://…:587`. |
-| `MAIL_FROM`            | With `smtp`         | —                    | `Today News <newsroom@example.com>`. |
+| `MAIL_FROM`            | With `smtp`         | —                    | `Today News <newsroom@example.com>` — a sender your provider lets you send as (Resend: a verified domain; `onboarding@resend.dev` only reaches the account owner's inbox). |
 | `CORS_ORIGINS`         | No                  | (none)               | Comma-separated origins. Leave unset — the browser never calls this API directly. |
 
 `.env` is git-ignored; only `.env.example` is committed.
@@ -149,9 +149,31 @@ scripts/
   a stale save changes nothing. Source attach/detach follow the same
   rule and bump the revision version.
 - **Media goes to Cloudinary** (`media/storage.ts`) and the CDN URL is
-  stored on `MediaAsset.url`. Body image blocks are resolved server-side
-  from that column — the URL a client sends is never persisted. If the
-  database write fails after an upload, the object is deleted again.
+  stored on `MediaAsset.url` — only metadata lives in the database, never
+  the bytes. Uploads are transformed on ingest (bounded to 2,400 px on the
+  long edge, re-encoded at `q_auto`); delivery sizing and format
+  negotiation happen in the frontend's Cloudinary image loader. Body
+  image blocks are resolved server-side from `MediaAsset.url` — the URL a
+  client sends is never persisted. If the database write fails after an
+  upload, the object is deleted again. `DELETE /media/:id` removes the
+  object from Cloudinary (CDN copies invalidated) and the row, refused
+  while a live or in-progress revision still shows it; `POST
+  /media/reconcile` (admin) drops rows whose object was deleted from the
+  Cloudinary dashboard.
+- **Deleting an article is rare, deliberate and recorded** (OQ-12, option
+  c). `DELETE /articles/:id` (admin, refused while LIVE — withdraw first)
+  removes the article, its revisions, citations and review decisions in
+  one transaction and writes a `DELETE` audit row. The audit rows about
+  the story stay, with their article pointer cleared — migration
+  `20260914120000_recorded_hard_delete` opens exactly that door in the
+  append-only triggers, only while the transaction has set
+  `today_news.purge_article = 'on'`.
+- **Session lookups are cached in-process for 30 s**
+  (`common/session-cache.ts`): the database is a remote round trip away
+  and every authenticated request would otherwise pay one just to load
+  the session. Sign-out, deactivation, role and password changes evict
+  the entry, so revocation is still immediate (SEC-05). Replace with a
+  shared store before running more than one API instance.
 - **Publishing purges the public cache.** After a publish or withdrawal
   commits, `cache/revalidate.ts` calls the frontend's `/api/revalidate`
   with the shared secret; the frontend's 60 s window is only the fallback.
@@ -196,10 +218,16 @@ automated suite yet (see `docs/27` B4).
 ## Known gaps
 
 - **No integration/e2e suite against a real database** (`docs/27` B4).
+- **Latency is dominated by distance to the database.** Every query is
+  one round trip to Neon; from India to `us-east-2` that is 250–500 ms,
+  and a CMS page runs a handful of them. Develop against a local
+  PostgreSQL (`docker run -e POSTGRES_PASSWORD=postgres -p 5432:5432
+  postgres:16`), and host the production database in the region closest
+  to the newsroom (Neon: `ap-southeast-1`).
 - **Single-instance rate limiting.** `auth.router.ts` uses an in-memory
   store; use a shared store before running more than one API instance
   (`docs/27` C1).
 - **Email is fire-and-forget.** No outbox or retry table (`docs/27` C6).
-- **Uploads are signature-checked, not re-encoded** — no EXIF stripping
-  or responsive derivatives yet (`docs/27` C5). Cloudinary transformations
-  can cover delivery-side sizing in the meantime.
+- **Responsive derivatives are Cloudinary's, not ours** — the master is
+  bounded and re-encoded on ingest, and the frontend's image loader asks
+  the CDN for each width; nothing is pre-generated (`docs/27` C5).

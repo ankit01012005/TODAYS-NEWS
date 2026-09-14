@@ -57,6 +57,18 @@ articlesRouter.patch(
   },
 );
 
+/// OQ-12 (c) — the recorded hard delete. Admin only; refused while LIVE
+/// (withdraw first). Not a workflow transition, so it lives here with the
+/// other CRUD rather than in the Reviews router.
+articlesRouter.delete(
+  "/articles/:id",
+  requireUuidParam("id"),
+  requireCapability("article:delete"),
+  async (req: Request<{ id: string }>, res: Response) => {
+    res.status(200).json(await articlesService.deleteArticlePermanently(CurrentUser(req), req.params.id));
+  },
+);
+
 /// docs/26 §1.5 — every revision ever frozen, oldest first, each with its
 /// review decisions. Backs PG-ADM-05 (Article history) and the feedback
 /// panel's "earlier rounds" list (docs/19 §4.5, §4.7).

@@ -5,7 +5,7 @@ import { ArticleListItemView, StaffUserView } from "@/lib/api/cms-types";
 import { ArticleListRow } from "./ArticleListRow";
 import { Tabs, TabItem } from "./Tabs";
 
-type FilterKey = "DRAFT" | "IN_REVIEW" | "CHANGES_REQUESTED" | "PUBLISHED" | "REJECTED";
+type FilterKey = "DRAFT" | "IN_REVIEW" | "CHANGES_REQUESTED" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   DRAFT: "Drafts",
@@ -13,6 +13,10 @@ const FILTER_LABELS: Record<FilterKey, string> = {
   CHANGES_REQUESTED: "Changes requested",
   PUBLISHED: "Published",
   REJECTED: "Rejected",
+  // Withdrawn and archived stories. They are still on record (docs/11
+  // T15/T16 — restorable), and an admin can delete them for good from
+  // the editor; without this tab they had nowhere to appear at all.
+  ARCHIVED: "Archived",
 };
 
 /// docs/12 PG-EDT-06 (editor, own articles) and PG-ADM-04 (admin, the
@@ -64,6 +68,7 @@ export function MyArticlesList({
       CHANGES_REQUESTED: [],
       PUBLISHED: [],
       REJECTED: [],
+      ARCHIVED: [],
     };
     for (const article of filtered) {
       const state = article.latestRevision?.state;
@@ -73,6 +78,9 @@ export function MyArticlesList({
         buckets.PUBLISHED.push(article);
       } else if (state === "REJECTED") {
         buckets.REJECTED.push(article);
+      } else {
+        // ARCHIVED (or WITHDRAWN with nothing open) — everything else.
+        buckets.ARCHIVED.push(article);
       }
     }
     return buckets;

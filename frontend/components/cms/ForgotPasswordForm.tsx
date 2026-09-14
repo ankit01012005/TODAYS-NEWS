@@ -6,6 +6,7 @@ import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
 import { Alert } from "./Alert";
+import { useToast } from "./Toast";
 
 /// docs/12 PG-EDT-03. P2-11-style: the backend returns the same generic
 /// confirmation whether or not the address belongs to an account — this
@@ -15,6 +16,7 @@ export function ForgotPasswordForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { info } = useToast();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -32,13 +34,25 @@ export function ForgotPasswordForm() {
       }
       const body = (await res.json()) as { message: string };
       setMessage(body.message);
+      info("Reset link requested", "Check your inbox — the link works for one hour.");
     } finally {
       setSubmitting(false);
     }
   }
 
   if (message) {
-    return <Alert variant="success" title={message} />;
+    return (
+      <div className="space-y-space-4">
+        <Alert variant="success" title={message}>
+          The link works for one hour. If nothing arrives, check your spam folder or ask the newsroom admin.
+        </Alert>
+        <p className="text-center">
+          <Link href="/staff/sign-in" className="text-body-sm text-accent underline">
+            Back to sign in
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (

@@ -6,6 +6,7 @@ import { AuthenticatedUser } from "../common/authenticated-user";
 import { generateOpaqueToken, hashToken } from "../common/token.util";
 import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 import { appLink, mailer, passwordResetEmail } from "../mail";
+import { evictSession, evictSessionsForUser } from "../common/session-cache";
 
 export const INVITATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -53,10 +54,12 @@ export async function signIn(
 }
 
 export async function signOut(rawToken: string): Promise<void> {
+  const tokenHash = hashToken(rawToken);
   await prisma.session.updateMany({
-    where: { tokenHash: hashToken(rawToken), revokedAt: null },
+    where: { tokenHash, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+  evictSession(tokenHash);
 }
 
 /// Same mechanism backs admin-invites-a-user and forgot-password
@@ -124,6 +127,9 @@ async function revokeOtherSessions(userId: string, keepRawToken?: string): Promi
     },
     data: { revokedAt: new Date() },
   });
+  // The kept session (if any) is re-read on its next request — cheap, and
+  // simpler than surgically keeping one entry warm.
+  evictSessionsForUser(userId);
 }
 
 /// Spends a set-password token (invitation or reset — same table, same
@@ -200,6 +206,8 @@ export async function updateProfile(
   if (data.passwordHash) {
     await revokeOtherSessions(userId, currentSessionRawToken);
   }
+  // A changed display name is part of the cached req.user as well.
+  evictSessionsForUser(userId);
   return {
     id: updated.id,
     email: updated.email,

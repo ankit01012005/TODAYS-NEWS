@@ -31,6 +31,7 @@ export function CmsSideNav({ user }: { user: AuthenticatedUser }) {
         { href: "/staff", label: "Dashboard" },
         ...(isAdmin ? [{ href: "/staff/review", label: "Review queue" }] : []),
         { href: "/staff/articles", label: isAdmin ? "All articles" : "My articles" },
+        { href: "/staff/media", label: "Media" },
       ],
     },
     ...(isAdmin

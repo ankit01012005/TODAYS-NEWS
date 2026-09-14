@@ -7,6 +7,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -20,6 +21,7 @@ export function CategoriesManager({ categories: initialCategories }: { categorie
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { success } = useToast();
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -41,6 +43,7 @@ export function CategoriesManager({ categories: initialCategories }: { categorie
       }
       const created = (await res.json()) as CategoryView;
       setCategories((list) => [...list, created].sort((a, b) => a.name.localeCompare(b.name)));
+      success("Section created", `${created.name} is available to writers now.`);
       setName("");
       setSlug("");
     } finally {
@@ -102,6 +105,7 @@ function CategoryRow({
   const [name, setName] = useState(category.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { success, info } = useToast();
 
   async function handleSave() {
     setError(null);
@@ -118,6 +122,7 @@ function CategoryRow({
       }
       onChanged((await res.json()) as CategoryView);
       setEditing(false);
+      success("Section renamed");
     } finally {
       setBusy(false);
     }
@@ -133,6 +138,7 @@ function CategoryRow({
         return;
       }
       onDeactivated(category.id);
+      info("Section deactivated", `${category.name} no longer appears for writers or readers.`);
     } finally {
       setBusy(false);
     }

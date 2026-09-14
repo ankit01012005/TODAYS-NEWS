@@ -9,6 +9,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 /// The daily hand-curation surface for the front page's "Top on social"
 /// rail. Add a post (platform, account, the headline readers will see,
@@ -23,6 +24,7 @@ export function SocialPicksManager({ picks: initialPicks }: { picks: SocialPickV
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { success } = useToast();
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -40,6 +42,7 @@ export function SocialPicksManager({ picks: initialPicks }: { picks: SocialPickV
       }
       const created = (await res.json()) as SocialPickView;
       setPicks((list) => [created, ...list]);
+      success("Pick added", "It is on the front page now.");
       setAccountHandle("");
       setHeadline("");
       setUrl("");
@@ -123,6 +126,7 @@ export function SocialPicksManager({ picks: initialPicks }: { picks: SocialPickV
 function PickRow({ pick, onRemoved }: { pick: SocialPickView; onRemoved: (id: string) => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { info } = useToast();
 
   async function remove() {
     setError(null);
@@ -134,6 +138,7 @@ function PickRow({ pick, onRemoved }: { pick: SocialPickView; onRemoved: (id: st
         return;
       }
       onRemoved(pick.id);
+      info("Pick removed", "It is off the front page.");
     } finally {
       setBusy(false);
     }

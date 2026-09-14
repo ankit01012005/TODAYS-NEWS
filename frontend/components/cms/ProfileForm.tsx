@@ -6,6 +6,8 @@ import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
+import { useRouter } from "next/navigation";
 
 /// docs/09 E-10 / docs/12 PG-EDT-10 — display name and password change,
 /// current-password required to set a new one. Calls the new
@@ -20,6 +22,8 @@ export function ProfileForm({ user }: { user: AuthenticatedUser }) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { success } = useToast();
+  const router = useRouter();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,10 +47,17 @@ export function ProfileForm({ user }: { user: AuthenticatedUser }) {
         setError(await readErrorMessage(res));
         return;
       }
-      setMessage("Profile updated");
+      const changedPassword = Boolean(newPassword);
+      setMessage(changedPassword ? "Profile updated — your password has been changed" : "Profile updated");
+      success(
+        changedPassword ? "Password changed" : "Profile saved",
+        changedPassword ? "Other sessions you had open have been signed out." : undefined,
+      );
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // The header shows the display name — re-render it with the new one.
+      router.refresh();
     } finally {
       setSubmitting(false);
     }

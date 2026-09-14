@@ -6,6 +6,7 @@ import { MediaAssetView } from "@/lib/api/cms-types";
 import { uploadMediaFile } from "@/lib/api/upload-media";
 import { Button } from "./Button";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 export interface FeaturedImageValue {
   featuredImageId: string | null;
@@ -33,6 +34,7 @@ export function FeaturedImagePicker({
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const { success, error: toastError } = useToast();
   const selected = media.find((m) => m.id === value.featuredImageId) ?? null;
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
@@ -43,6 +45,9 @@ export function FeaturedImagePicker({
       const asset = await uploadMediaFile(file);
       onMediaUploaded(asset);
       onChange({ ...value, featuredImageId: asset.id });
+      success("Image uploaded", `${asset.originalFilename ?? "Image"} is set as the featured image — add alt text below.`);
+    } catch (err) {
+      toastError("Upload failed", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

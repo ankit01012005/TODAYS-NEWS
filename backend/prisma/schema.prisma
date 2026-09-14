@@ -15,7 +15,14 @@
 // this schema file directly.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // relationJoins: an `include` becomes one SQL statement with a JOIN
+  // instead of one query per relation. The database is a remote round
+  // trip away (~250 ms from the newsroom to Neon), so every query saved is
+  // a quarter of a second off the page — session+user, article+category,
+  // revision+decisions all load in one go. Preview in Prisma 6.x; stable
+  // in practice since 5.7 (Dec 2023). Requires `prisma generate`.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {

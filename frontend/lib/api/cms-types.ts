@@ -119,6 +119,13 @@ export interface ArticleSourceView {
   source: SourceView;
 }
 
+/// POST /media/reconcile — media.service.ts reconcileWithStorage.
+export interface MediaReconcileResult {
+  removed: Array<{ id: string; storageKey: string; originalFilename: string | null }>;
+  affectedStories: Array<{ articleId: string; slug: string; state: string }>;
+  checked: number;
+}
+
 export interface MediaAssetView {
   id: string;
   storageKey: string;

@@ -6,6 +6,7 @@ import { clientFetch, readErrorMessage } from "@/lib/api/client-fetch";
 import { TextField } from "./TextField";
 import { Button } from "./Button";
 import { Alert } from "./Alert";
+import { useToast } from "./Toast";
 
 /// docs/12 PG-EDT-04. Serves both first-time invitation acceptance and a
 /// forgot-password reset — the backend uses one mechanism for both
@@ -18,8 +19,25 @@ const ENDPOINTS: Record<SetPasswordMode, string> = {
   reset: "/auth/reset-password",
 };
 
+/// Confirmed twice on success — a toast the moment it happens, and a note
+/// on the sign-in page it lands on (SignInForm's ARRIVAL_NOTES), so the
+/// outcome is unmistakable even if the toast has faded.
+const DONE: Record<SetPasswordMode, { toast: string; detail: string; reason: string }> = {
+  invitation: {
+    toast: "Password set — your account is ready",
+    detail: "Sign in with your email and the password you just chose.",
+    reason: "password-set",
+  },
+  reset: {
+    toast: "Password changed",
+    detail: "Sign in with your new password.",
+    reason: "password-reset",
+  },
+};
+
 export function SetPasswordForm({ token, mode = "invitation" }: { token: string | null; mode?: SetPasswordMode }) {
   const router = useRouter();
+  const { success } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +71,8 @@ export function SetPasswordForm({ token, mode = "invitation" }: { token: string 
         setError(await readErrorMessage(res));
         return;
       }
-      router.push("/staff/sign-in");
+      success(DONE[mode].toast, DONE[mode].detail);
+      router.push(`/staff/sign-in?reason=${DONE[mode].reason}`);
     } finally {
       setSubmitting(false);
     }

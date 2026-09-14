@@ -24,6 +24,7 @@ import { FeedbackPanel } from "./FeedbackPanel";
 import { SourcePicker } from "./SourcePicker";
 import { StatusBadge } from "./StatusBadge";
 import { TextAreaField, TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 /// docs/26 §1.3 — the only two states a revision may still be written in.
 /// Mirrors backend/src/articles/articles.service.ts's EDITABLE_STATES
@@ -105,6 +106,10 @@ export function ArticleEditor({
   const canReopenOrArchive = isAdmin && hasNoOpenRevision && displayRevision?.state === "REJECTED";
   const canRestore =
     isAdmin && hasNoOpenRevision && article.publicationStatus !== "LIVE" && displayRevision?.state === "ARCHIVED";
+  // OQ-12 (c) — the recorded hard delete. Admin only, and never while
+  // readers can see the story: withdrawing (with its reason and cache
+  // purge) is the act that takes something away from the public.
+  const canDelete = isAdmin && article.publicationStatus !== "LIVE";
 
   const [form, setForm] = useState<FormState>(() => toFormState(displayRevision, article));
   const [version, setVersion] = useState<number>(displayRevision?.version ?? 0);
@@ -119,8 +124,10 @@ export function ArticleEditor({
   const [restoring, setRestoring] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [unpublishReason, setUnpublishReason] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const { success, info } = useToast();
 
   // DM-02 excludes autosave as a binding decision — the only defense
   // against silent data loss is warning before an unsaved tab closes.
@@ -169,6 +176,7 @@ export function ArticleEditor({
       setVersion(updated.version);
       setDirty(false);
       setSaved(true);
+      success("Saved", "Your changes are stored. Submit for review when the story is ready.");
       router.refresh();
     } finally {
       setSaving(false);
@@ -188,6 +196,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      success("Submitted for review", "An admin will approve it, request changes or reject it.");
       router.push("/staff/articles");
       router.refresh();
     } finally {
@@ -208,6 +217,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      info("Withdrawn from review", "The story is a draft again — edit and resubmit when ready.");
       router.refresh();
     } finally {
       setWithdrawing(false);
@@ -223,6 +233,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      success("Correction started", "Readers keep seeing the live version until an admin publishes your changes.");
       router.refresh();
     } finally {
       setStartingCorrection(false);
@@ -240,6 +251,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      success("Reopened as a new draft");
       router.refresh();
     } finally {
       setReopening(false);
@@ -260,6 +272,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      info("Archived", "It stays on record under Archived and can be restored or deleted from there.");
       router.refresh();
     } finally {
       setArchiving(false);
@@ -276,6 +289,7 @@ export function ArticleEditor({
         setError(await readErrorMessage(res));
         return;
       }
+      success("Restored as a new draft");
       router.refresh();
     } finally {
       setRestoring(false);
@@ -299,9 +313,30 @@ export function ArticleEditor({
         return;
       }
       setUnpublishReason("");
+      info("Story withdrawn", "It is off the site, listings, feed and sitemap.");
       router.refresh();
     } finally {
       setUnpublishing(false);
+    }
+  }
+
+  /// OQ-12 (c) — gone from the database for good; only the audit trail
+  /// keeps a record that it existed and who removed it.
+  async function handleDelete() {
+    setError(null);
+    setDeleting(true);
+    try {
+      const res = await clientFetch(`/articles/${article.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        setError(await readErrorMessage(res));
+        return;
+      }
+      const deleted = (await res.json()) as { slug: string; headline: string | null };
+      info("Story deleted permanently", `“${deleted.headline ?? deleted.slug}” has been removed from the database.`);
+      router.push("/staff/articles");
+      router.refresh();
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -518,6 +553,25 @@ export function ArticleEditor({
           </div>
         ) : null}
       </form>
+
+      {canDelete ? (
+        <section className="rounded-md border border-danger/40 bg-danger-wash/40 p-space-4">
+          <h2 className="text-label text-danger">Delete permanently</h2>
+          <p className="mt-space-1 text-body-sm text-ink-secondary">
+            Removes the story and every one of its revisions, citations and review decisions from the database.
+            Nothing can bring it back. The audit trail keeps a record of the deletion.
+          </p>
+          <div className="mt-space-3">
+            <ConfirmAction
+              label="Delete permanently"
+              confirmLabel="This cannot be undone."
+              variant="destructive"
+              loading={deleting}
+              onConfirm={handleDelete}
+            />
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

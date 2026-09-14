@@ -7,6 +7,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 /// PG-ADM-08+09 combined. Any signed-in staff member can list sources
 /// (docs/10 A-12), so creating is open to this page's viewer regardless of
@@ -19,6 +20,7 @@ export function SourcesManager({ sources: initialSources }: { sources: SourceVie
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const { success } = useToast();
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -36,6 +38,7 @@ export function SourcesManager({ sources: initialSources }: { sources: SourceVie
       }
       const created = (await res.json()) as SourceView;
       setSources((list) => [...list, created].sort((a, b) => a.name.localeCompare(b.name)));
+      success("Source added", `${created.name} can be cited from any story now.`);
       setName("");
       setDescription("");
     } finally {
@@ -100,6 +103,7 @@ function SourceRow({
   const [url, setUrl] = useState(source.url ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { success, info } = useToast();
 
   async function handleSave() {
     setError(null);
@@ -116,6 +120,7 @@ function SourceRow({
       }
       onChanged((await res.json()) as SourceView);
       setEditing(false);
+      success("Source saved");
     } finally {
       setBusy(false);
     }
@@ -131,6 +136,7 @@ function SourceRow({
         return;
       }
       onChanged((await res.json()) as SourceView);
+      success("Source verified", `${source.name} now shows as verified wherever it is cited.`);
     } finally {
       setBusy(false);
     }
@@ -146,6 +152,7 @@ function SourceRow({
         return;
       }
       onDeactivated(source.id);
+      info("Source deactivated", `${source.name} can no longer be attached to new stories.`);
     } finally {
       setBusy(false);
     }

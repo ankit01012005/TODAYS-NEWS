@@ -7,6 +7,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { TextField } from "./TextField";
+import { useToast } from "./Toast";
 
 /// PG-ADM-06+07 combined into one page (docs/10 P2-04: "one page with a
 /// role filter... same capability, half the screens"). Invite, role
@@ -20,6 +21,7 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
   const [outcome, setOutcome] = useState<InvitationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const { success, error: toastError } = useToast();
 
   function upsertUser(updated: StaffUserView) {
     setUsers((list) => list.map((u) => (u.id === updated.id ? updated : u)));
@@ -43,6 +45,11 @@ export function UsersManager({ users: initialUsers, currentUserId }: { users: St
       const created = (await res.json()) as InvitationResult;
       setUsers((list) => [...list, created.user]);
       setOutcome(created);
+      if (created.emailDelivered) {
+        success("Invitation sent", `${created.user.email} has 7 days to set a password.`);
+      } else {
+        toastError("Account created, but the email failed", "Check the mail configuration, then resend.");
+      }
       setEmail("");
       setDisplayName("");
       setRole("EDITOR");
@@ -139,6 +146,7 @@ function UserRow({
   const [error, setError] = useState<string | null>(null);
   const [resent, setResent] = useState<InvitationResult | null>(null);
   const pendingRoleChange = role !== user.role;
+  const { success, info, error: toastError } = useToast();
 
   async function resendInvitation() {
     setError(null);
@@ -153,6 +161,8 @@ function UserRow({
       const result = (await res.json()) as InvitationResult;
       setResent(result);
       onChanged(result.user);
+      if (result.emailDelivered) success("Invitation re-sent", `A fresh link is on its way to ${user.email}.`);
+      else toastError("The email could not be sent", "Check the mail configuration.");
     } finally {
       setBusy(false);
     }
@@ -173,6 +183,7 @@ function UserRow({
         return;
       }
       onChanged((await res.json()) as StaffUserView);
+      success("Role changed", `${user.displayName} is now ${role === "ADMIN" ? "an admin" : "an editor"}.`);
     } finally {
       setBusy(false);
     }
@@ -189,6 +200,8 @@ function UserRow({
         return;
       }
       onChanged((await res.json()) as StaffUserView);
+      if (path === "deactivate") info("Account deactivated", `${user.displayName} has been signed out everywhere.`);
+      else success("Account reactivated", `${user.displayName} can sign in again.`);
     } finally {
       setBusy(false);
     }

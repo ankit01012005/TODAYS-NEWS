@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AuthenticatedUser } from "@/lib/api/auth-types";
 import { clientFetch } from "@/lib/api/client-fetch";
+import { useToast } from "./Toast";
 
 /// docs/19 §2.4 — wordmark + area label ("Editor"/"Newsroom"), user menu
 /// right. SEO-09: this masthead is CMS-only and never appears on a public
@@ -12,11 +13,13 @@ import { clientFetch } from "@/lib/api/client-fetch";
 export function CmsHeader({ user }: { user: AuthenticatedUser }) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
+  const { info } = useToast();
 
   async function handleSignOut() {
     setSigningOut(true);
     await clientFetch("/auth/sign-out", { method: "POST" });
-    router.push("/staff/sign-in");
+    info("Signed out");
+    router.push("/staff/sign-in?reason=signed-out");
     router.refresh();
   }
 

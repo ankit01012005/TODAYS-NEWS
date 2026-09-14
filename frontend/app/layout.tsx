@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { newsreader, inter, ibmPlexMono } from "./fonts";
 import { SITE_NAME } from "@/lib/site";
+import { ToastProvider } from "@/components/cms/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,7 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        {children}
+        {/* Above every route so a toast raised just before a navigation
+            (sign-in, set-password, submit) survives it. Renders nothing
+            until something calls useToast(). */}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

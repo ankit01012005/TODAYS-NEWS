@@ -20,19 +20,23 @@ export const metadata: Metadata = { title: "Edit article — Today News", robots
 export default async function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireSession();
-  const article = await getArticle(id);
-  // SEC-03-adjacent: getArticle returns null for both "doesn't exist" and
-  // "not yours" (assertOwnerOrAdmin throws NotFoundError either way) — one
-  // notFound() call, no separate branch that could tell them apart.
-  if (!article) notFound();
-
-  const [categories, media, sources, attachedSources, history] = await Promise.all([
+  // Everything the editor needs in ONE parallel round: the API is a remote
+  // hop away and each call costs the same regardless of order. The
+  // per-article reads are gated by the same ownership check as getArticle
+  // (they 404 for a stranger), so nothing leaks by asking early — the
+  // article check below is still what decides whether the page renders.
+  const [article, categories, media, sources, attachedSources, history] = await Promise.all([
+    getArticle(id),
     listCategoriesForStaff(),
     listMedia(),
     listSourcesForStaff(),
-    getArticleSources(id),
-    getRevisionHistory(id),
+    getArticleSources(id).catch(() => null),
+    getRevisionHistory(id).catch(() => null),
   ]);
+  // SEC-03-adjacent: getArticle returns null for both "doesn't exist" and
+  // "not yours" (assertOwnerOrAdmin throws NotFoundError either way) — one
+  // notFound() call, no separate branch that could tell them apart.
+  if (!article || attachedSources === null || history === null) notFound();
 
   return (
     <CmsShell user={user}>

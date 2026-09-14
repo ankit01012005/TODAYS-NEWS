@@ -7,6 +7,7 @@ import { Alert } from "./Alert";
 import { Button } from "./Button";
 import { ConfirmAction } from "./ConfirmAction";
 import { TextAreaField } from "./TextField";
+import { useToast } from "./Toast";
 
 /// PG-ADM-03 — "where publication happens." Three decisions, and three
 /// only (docs/10 A-04): Approve & publish (confirmed — "the one place in
@@ -25,6 +26,7 @@ export function ArticleReviewActions({
   canApprove: boolean;
 }) {
   const router = useRouter();
+  const { success, info } = useToast();
   const [comment, setComment] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,7 @@ export function ArticleReviewActions({
         setError(await readErrorMessage(res));
         return;
       }
+      success("Published", "The story is live on the site now.");
       router.push("/staff/review");
       router.refresh();
     } finally {
@@ -66,6 +69,7 @@ export function ArticleReviewActions({
         setError(await readErrorMessage(res));
         return;
       }
+      info("Changes requested", "The story is back with its editor, with your comment.");
       router.push("/staff/review");
       router.refresh();
     } finally {
@@ -86,6 +90,7 @@ export function ArticleReviewActions({
         setError(await readErrorMessage(res));
         return;
       }
+      info("Rejected", "The editor has been told the story will not run.");
       router.push("/staff/review");
       router.refresh();
     } finally {
