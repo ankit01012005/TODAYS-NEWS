@@ -77,12 +77,16 @@ app/
     articles/, articles/new/, articles/[id]/{edit,preview,history}/
     review/, review/[id]/                       # Admin-only review queue + decision page
     users/, sources/, categories/, social/      # Admin-only newsroom management
+    media/                                      # Media library (both roles): delete, admin sync with Cloudinary
     profile/
   api/backend/[...path]/route.ts                # The one authenticated proxy — see below
   api/revalidate/route.ts                       # Cache purge endpoint the API calls on publish
+  layout.tsx                                    # Root layout; mounts the ToastProvider
 components/
   public/    # Article rendering shared by the public site AND the CMS preview
   cms/       # CMS UI: editor, body editor, pickers, management panels, primitives
+             # Toast.tsx — ToastProvider + useToast(), the acknowledgement for every write
+             # MediaLibrary.tsx — the /staff/media page's client component
   layout/    # Public masthead, nav, footer
   motion/    # Reveal/tilt runtime for the public site
 lib/
@@ -90,6 +94,7 @@ lib/
     public.ts, public-types.ts                  # Public-read fetchers (no auth; cache-tagged "public")
     session.ts, cms.ts, cms-types.ts, auth-types.ts   # Server-side authenticated reads
     client-fetch.ts, upload-media.ts, body-blocks.ts   # Client-side write helpers
+  cloudinary-loader.ts                          # next/image loader — CDN does the resizing (see below)
   format-date.ts, reading-time.ts, site.ts, social-platform.ts
 ```
 
@@ -113,9 +118,38 @@ There is a hard rule behind this app's data layer (`docs/23-architecture-discove
   only job is keeping the session cookie `httpOnly` and first-party.
 
 **Images** are Cloudinary CDN URLs returned by the API and rendered
-through `next/image` (`next.config.ts` allows `res.cloudinary.com`). The
-CMS writes the asset's stored URL into body blocks, and the backend
-re-resolves it from the database on save regardless.
+through `next/image` with a custom loader (`lib/cloudinary-loader.ts`,
+wired in `next.config.ts`). The loader turns the stored master URL into a
+delivery URL carrying `f_auto,q_auto,w_<width>,c_limit`, so Cloudinary's
+CDN does the resizing and format negotiation for every `srcset` entry and
+`/_next/image` is never involved — no multi-megabyte master fetched and
+re-encoded on this server, in development or production. The CMS writes
+the asset's stored URL into body blocks, and the backend re-resolves it
+from the database on save regardless.
+
+**Every write is acknowledged.** `components/cms/Toast.tsx` provides a
+`ToastProvider` (mounted in the root layout, above every route, so a toast
+raised just before `router.push()` — sign-in, set-password, submit — is
+still on screen when the next page renders) and a `useToast()` hook.
+Convention: a successful write calls `success()`/`info()`; a failed one
+sets the inline `Alert` next to the control that failed (and `error()` for
+failures that happen away from a form, such as uploads). Set-password and
+sign-out also land on `/staff/sign-in?reason=…`, which shows a persistent
+note in case the toast has faded.
+
+**Media library** (`/staff/media`). Editors upload and delete their own
+images; the admin deletes any and can *Sync with Cloudinary*, which asks
+the API to drop rows whose object was deleted from the Cloudinary
+dashboard (otherwise they linger in the picker and render as broken
+pictures). Deleting is real — Cloudinary and database together — and the
+API refuses it while a live or in-progress story still shows the image.
+
+**Permanent deletion.** An admin can delete a story that is not live from
+its editor page (the "Delete permanently" section) — `DELETE /articles/:id`,
+confirmed in two steps, recorded in the audit log. Withdrawn and archived
+stories appear under the **Archived** tab of the article list so they can
+be found, restored or deleted; they never disappear from the CMS while
+they exist in the database.
 
 **Cache invalidation.** Public fetches use `revalidate: 60` plus the
 `"public"` tag. When a story is published, corrected or withdrawn, the API
@@ -132,6 +166,15 @@ dashboard.
 There is no automated frontend test suite yet (`docs/27` B4). Every
 change has been verified by running the real dev server against a real
 backend and driving the actual HTTP requests the UI makes.
+
+**Why the CMS feels slow in development:** each CMS page fans out into a
+handful of API calls, and each of those is one or more round trips from
+the API to its database. With the database on another continent every
+query costs 250 ms or more before any work happens; the API caches the
+session lookup and batches what it can, but the distance itself is the
+cost. Run the API against a local PostgreSQL for development (see the
+backend README), and expect the first visit to each route to take extra
+seconds in `next dev` while Turbopack compiles it.
 
 ## Deployment
 
