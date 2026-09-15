@@ -2,10 +2,10 @@
   "name": "today-news-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Today_news API — Express backend on PostgreSQL/Prisma",
+  "description": "Today_news API \u2014 Express backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -18,14 +18,17 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs"
+    "db:bootstrap-admin": "node scripts/bootstrap-admin.cjs",
+    "db:verify": "ts-node src/scripts/db-verify.ts",
+    "db:verify:dist": "node dist/scripts/db-verify.js",
+    "db:reap-sessions": "ts-node src/scripts/reap-sessions.ts"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",
     "argon2": "0.45.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
-    "cloudinary": "2.11.0",
+    "cloudinary": "^2.11.0",
     "cookie-parser": "1.4.7",
     "cors": "2.8.6",
     "express": "5.2.1",

@@ -2,14 +2,15 @@
   "name": "today-news-frontend",
   "version": "0.1.0",
   "private": true,
-  "description": "ANVAY TV — public site and CMS, Next.js on the Anvay brand system",
+  "description": "ANVAY TV \u2014 public site and CMS, Next.js on the Anvay brand system",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:env": "node scripts/check-env.mjs"
   },
   "dependencies": {
     "framer-motion": "^13.3.0",
@@ -27,5 +28,8 @@
     "eslint-config-next": "16.3.4",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }
