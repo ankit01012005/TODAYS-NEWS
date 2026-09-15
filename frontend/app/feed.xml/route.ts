@@ -1,12 +1,13 @@
 import { getPublishedArticles } from "@/lib/api/public";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
+import { siteUrl as resolveSiteUrl } from "@/lib/env";
 
 /// PG-PUB-M3 — SEO-13. Hand-built RSS 2.0; no dependency needed for a
 /// format this small. Summaries only, never full bodies (docs/08 R-06 —
 /// "so readers arrive on the site rather than reading it elsewhere").
 /// Most-recent page only (no pagination in an RSS feed by convention).
 export async function GET(): Promise<Response> {
-  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const siteUrl = resolveSiteUrl();
   const { articles } = await getPublishedArticles();
 
   const items = articles

@@ -3,10 +3,23 @@ import { archivo, ibmPlexMono } from "./fonts";
 import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 import { ToastProvider } from "@/components/cms/Toast";
 import { MotionProvider } from "@/components/motion/MotionProvider";
+import { siteUrl } from "@/lib/env";
 import "./globals.css";
 
+function metadataBaseUrl(): URL | undefined {
+  try {
+    return new URL(siteUrl());
+  } catch {
+    return undefined;
+  }
+}
+
 export const metadata: Metadata = {
-  metadataBase: process.env.SITE_URL ? new URL(process.env.SITE_URL) : undefined,
+  // Resolved through the validated accessor so a malformed SITE_URL is
+  // caught here too, but tolerated if it is absent: metadata is evaluated
+  // during `next build`, which must not require the runtime environment
+  // (docs/27 A6). `npm run check:env` is what refuses a bad deploy.
+  metadataBase: metadataBaseUrl(),
   title: { default: SITE_NAME, template: `%s — ${SITE_NAME}` },
   description: `${SITE_NAME} — ${SITE_TAGLINE} Every story is reviewed by an editor before it is published.`,
   applicationName: SITE_NAME,

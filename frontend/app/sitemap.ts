@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getPublishedArticles } from "@/lib/api/public";
+import { siteUrl as resolveSiteUrl } from "@/lib/env";
 
 /// PG-PUB-M1 — SEO-08. Walks every published article via the same cursor
 /// pagination the homepage uses, until exhausted. Withdrawn articles leave
@@ -7,7 +8,7 @@ import { getPublishedArticles } from "@/lib/api/public";
 /// result the moment publicationStatus stops being LIVE (SEO-14) — there's
 /// no separate "sitemap membership" state to fall out of sync.
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const siteUrl = resolveSiteUrl();
   const entries: MetadataRoute.Sitemap = [
     { url: siteUrl, changeFrequency: "hourly", priority: 1 },
     { url: `${siteUrl}/about`, changeFrequency: "yearly", priority: 0.3 },

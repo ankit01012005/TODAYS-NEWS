@@ -1,11 +1,5 @@
-/// The app's own public origin, server-side (SITE_URL, the same value the
-/// sitemap and feed use). For building absolute story links — share
-/// sheets, WhatsApp, "copy caption" — where the browser's origin isn't
-/// known at render time.
-export function siteUrl(): string {
-  return (process.env.SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-}
-
-export function absoluteUrl(path: string): string {
-  return `${siteUrl()}${path.startsWith("/") ? path : `/${path}`}`;
-}
+/// The app's own public origin, and absolute URLs built from it.
+///
+/// Both live in lib/env.ts now, alongside the validation. This file stays
+/// as the import path the rest of the app already uses.
+export { siteUrl, absoluteUrl } from "./env";

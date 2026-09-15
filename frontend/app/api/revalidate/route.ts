@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { PUBLIC_CACHE_TAG } from "@/lib/api/public";
+import { revalidateSecret } from "@/lib/env";
 
 /// docs/27 B3 — called by the API (backend/src/cache/revalidate.ts) after
 /// a story is published, corrected or withdrawn, so readers never see a
@@ -11,7 +12,7 @@ import { PUBLIC_CACHE_TAG } from "@/lib/api/public";
 const ALLOWED_TAGS = new Set<string>([PUBLIC_CACHE_TAG]);
 
 function secretMatches(header: string | null): boolean {
-  const expected = process.env.REVALIDATE_SECRET;
+  const expected = revalidateSecret();
   if (!expected || !header?.startsWith("Bearer ")) return false;
   const given = Buffer.from(header.slice("Bearer ".length));
   const wanted = Buffer.from(expected);
