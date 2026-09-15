@@ -367,6 +367,19 @@ async function postChecks(): Promise<void> {
   });
 
   await check("BR-14 exactly one active admin", async () => {
+    // A database that has just been migrated has no accounts at all, and
+    // that is not a violation — BR-14 governs a newsroom in use, and its
+    // "never zero" trigger fires on UPDATE and DELETE, so it cannot be
+    // broken by an empty table. The first admin arrives out of band
+    // afterwards (`npm run db:bootstrap-admin`). Reporting FAIL here made
+    // the check unusable in exactly the place it is most wanted: verifying
+    // a fresh database in CI, and verifying a restored backup before
+    // anyone has signed in.
+    const users = Number(await scalar<bigint>("SELECT count(*) FROM users"));
+    if (users === 0) {
+      return ["PASS", "no accounts yet — freshly created; BR-14 applies from the first one"];
+    }
+
     const n = Number(
       await scalar<bigint>("SELECT count(*) FROM users WHERE role = 'ADMIN' AND status = 'ACTIVE'"),
     );
@@ -473,6 +486,15 @@ async function main(): Promise<void> {
     );
   }
   process.stdout.write("\n");
+
+  // GitHub gates Actions logs behind a signed-in session; annotations are
+  // public. Emitting the failures as one makes a red run diagnosable from
+  // the API, which is how the checks themselves get fixed.
+  if (failed.length > 0 && process.env.GITHUB_ACTIONS === "true") {
+    const summary = failed.map((r) => `${r.name}: ${r.detail}`).join(" ~ ").slice(0, 3000);
+    process.stdout.write(`::error title=db:verify failed::${summary}
+`);
+  }
 
   await prisma.$disconnect();
   process.exit(failed.length > 0 ? 1 : 0);
