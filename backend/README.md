@@ -41,7 +41,7 @@ implements — in particular `23-architecture-discovery.md` (system design),
 ```bash
 npm install
 cp .env.example .env         # fill in DATABASE_URL, DIRECT_DATABASE_URL, CLOUDINARY_URL
-npx prisma migrate deploy    # apply all committed migrations
+npm run prisma:migrate:deploy   # apply all committed migrations
 npx prisma generate          # regenerate the Prisma client (also runs on install)
 BOOTSTRAP_ADMIN_EMAIL=you@example.com \
 BOOTSTRAP_ADMIN_PASSWORD='a long passphrase' \
@@ -99,6 +99,9 @@ refuses to start with a missing or malformed required value.
 | `npm run prisma:migrate:deploy` | Applies committed migrations, no prompts (CI/production) |
 | `npm run prisma:validate`       | Validates `schema.prisma` |
 | `npm run db:bootstrap-admin`    | Creates the first ADMIN account (idempotent; needs `BOOTSTRAP_ADMIN_*`) |
+| `npm run db:verify`             | Database checks — `-- --stage=pre` before migrating, `--stage=post` after, `--stage=all` for both. Read-only; exits 1 on any failure |
+| `npm run db:verify:dist`        | The same, from `dist/` — for a release image that has no TypeScript |
+| `npm run db:reap-sessions`      | Deletes sessions past the 30-day retention window (`-- --days=N`). The running API does this hourly |
 
 ## Project structure
 
@@ -193,14 +196,60 @@ client — no database, network or environment needed. The PostgreSQL
 triggers and CHECK constraints in the migrations are not covered by an
 automated suite yet (see `docs/27` B4).
 
+## Logging and errors
+
+One structured JSON object per line, on stdout for `info`/`debug` and
+stderr for `warn`/`error` — `backend/src/common/logger.ts`. Nothing uses
+`console.*`.
+
+```json
+{"time":"2026-09-15T08:07:46.683Z","level":"info","event":"server.started","port":3001,"env":"development","mailTransport":"smtp","revalidation":"disabled"}
+```
+
+- `LOG_LEVEL` — `debug` | `info` (default) | `warn` | `error` | `silent`.
+  Read per call, so raising it takes effect without a restart. The test
+  suite runs at `silent` (`jest.setup.js`).
+- Values under keys naming a credential (`password`, `token`, `secret`,
+  `cookie`, `authorization`, `smtp_url`, `database_url`) are replaced with
+  `[redacted]` at any depth before the line is written (SEC-06).
+- Stacks are included outside production only, or with `LOG_STACKS=true`.
+- `requestId` appears in the log line *and* in the error response body as
+  `correlationId`, so a user's report joins to the request that failed.
+
+Errors map to three distinct outcomes rather than one generic 500
+(`common/middleware/error-handler.middleware.ts`, `common/prisma-errors.ts`):
+
+| Outcome | When | Response | Logged as |
+| --- | --- | --- | --- |
+| 4xx | The caller's request | the service's own message | `request.rejected` (warn), or nothing for routine 401/404 |
+| **503** | Database unreachable, pool exhausted, transaction timeout, deadlock | `Retry-After: 5` | `request.unavailable` (error) |
+| 500 | A bug | a generic message, never a stack | `request.unhandled` (error) |
+
+The 503 case matters operationally: before it existed, a database outage
+and a null-pointer bug produced identical responses and identical log
+lines, so neither the client nor the alert rule could tell "retry" from
+"page someone".
+
 ## Deployment
+
+A production image is defined in `Dockerfile` (multi-stage, non-root,
+`tini` for signal delivery, container health check on `/health`).
+`docs/28-deployment-runbook.md` is the full release and rollback
+procedure; the short version:
 
 1. `npm ci && npm run build`
 2. Provision PostgreSQL and set `DATABASE_URL` (pooled) and
    `DIRECT_DATABASE_URL` (direct).
 3. Set `CLOUDINARY_URL` (and `CLOUDINARY_FOLDER` per environment).
-4. Run `npx prisma migrate deploy` against the database in the release
-   step, before the new version starts serving.
+4. `npm run db:verify -- --stage=pre`, then `npm run prisma:migrate:deploy`
+   against the database in the release step — before the new version
+   starts serving — then `npm run db:verify -- --stage=post`. The two
+   stages answer different questions: *pre* is "is this the right server,
+   reachable, encrypted, and are we a non-superuser"; *post* is "did every
+   migration land, is every invariant-bearing trigger and constraint still
+   installed, and does the live data satisfy them". `prisma migrate
+   status` checks only the ledger — a trigger dropped by hand leaves it
+   pristine.
 5. Set `NODE_ENV=production`, `APP_BASE_URL=https://<your site>`,
    `REVALIDATE_SECRET` (same value as the frontend), `MAIL_TRANSPORT=smtp`,
    `SMTP_URL`, `MAIL_FROM`, and `TRUST_PROXY=1` if behind a load balancer.
@@ -214,10 +263,18 @@ automated suite yet (see `docs/27` B4).
    from readers' browsers (docs/23 §11.4).
 8. Create the first admin with `npm run db:bootstrap-admin` (set the three
    `BOOTSTRAP_ADMIN_*` variables for that one run).
+9. Run `node ../scripts/smoke.mjs --api=… --site=…` against the running
+   release. It must exit 0; if it does not, roll back rather than wait.
 
 ## Known gaps
 
-- **No integration/e2e suite against a real database** (`docs/27` B4).
+- **No behavioural integration suite against a real database**
+  (`docs/27` B4). CI does apply every migration to a real PostgreSQL and
+  then run `db:verify --stage=post`, so the schema, the triggers and the
+  constraints are checked for *presence* and the data for *consistency* —
+  but nothing yet tries to violate a trigger (two concurrent publishes, an
+  UPDATE against `audit_logs`, deactivating the last admin) to prove it
+  fires.
 - **Latency is dominated by distance to the database.** Every query is
   one round trip to Neon; from India to `us-east-2` that is 250–500 ms,
   and a CMS page runs a handful of them. Develop against a local
@@ -231,3 +288,26 @@ automated suite yet (see `docs/27` B4).
 - **Responsive derivatives are Cloudinary's, not ours** — the master is
   bounded and re-encoded on ingest, and the frontend's image loader asks
   the CDN for each width; nothing is pre-generated (`docs/27` C5).
+
+## Account credentials
+
+Not in this file, and not anywhere else in the repository. `README.md` is
+tracked, so a password written here is published to everyone with repository
+access the moment it is committed — permanently, because removing it in a
+later commit does not remove it from history.
+
+The first admin is created out of band and the command takes its values
+from the environment, never from a file (`scripts/bootstrap-admin.cjs`):
+
+```powershell
+$env:BOOTSTRAP_ADMIN_EMAIL = "you@example.com"
+$env:BOOTSTRAP_ADMIN_PASSWORD = "a long passphrase"
+$env:BOOTSTRAP_ADMIN_NAME = "Your Name"
+npm run db:bootstrap-admin
+```
+
+Change that password at `/staff/profile` after the first sign-in. Every
+other account is created by invitation from `/staff/users` — the person
+chooses their own password from the emailed link, and nobody else ever
+knows it. Store shared operational secrets in the deployment platform's
+secret manager (`docs/28` §2).

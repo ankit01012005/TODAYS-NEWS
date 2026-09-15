@@ -16,3 +16,9 @@ dist/
 *.log
 .vscode/
 .idea/
+
+# Reference material kept on disk but not part of the system (archive/README.md)
+archive/
+
+# Local agent/tool state
+.claude/

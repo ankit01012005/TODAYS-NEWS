@@ -56,10 +56,29 @@ the CMS.
 | Variable            | Required   | Example                 | Notes |
 | ------------------- | ---------- | ----------------------- | ----- |
 | `API_BASE_URL`      | Yes        | `http://localhost:3001` | The backend's origin. **Never** prefixed `NEXT_PUBLIC_*` — the browser must never see it (docs/23 §11.4). |
-| `SITE_URL`          | Yes        | `http://localhost:3000` | This app's own public origin — absolute URLs in `sitemap.ts`, `robots.ts` and `feed.xml`. |
+| `SITE_URL`          | Yes        | `http://localhost:3000` | This app's own public origin — absolute URLs in `sitemap.ts`, `robots.ts`, `feed.xml` and every canonical/OG tag. **Read at build time as well as run time**: `robots.txt` and the sitemap are prerendered, so the value present during `next build` is baked into them. |
 | `REVALIDATE_SECRET` | Production | (32+ random chars)      | Same value as the backend's. Authenticates the API's calls to `/api/revalidate`. Optional in development. |
 
 Copy `.env.example` to `.env.local`; that file is git-ignored.
+
+All three are resolved through `lib/env.ts`, which is the only place that
+reads `process.env` for them. The split of responsibility is deliberate:
+
+- **`lib/env.ts` checks shape** — is it a URL, is the protocol sane, strip
+  a trailing slash — and falls back to localhost when a variable is unset.
+  It never throws merely because something is missing, because `next
+  build` prerenders routes without the runtime environment and the build
+  must not depend on it (`docs/27` A6).
+- **`npm run check:env` checks policy** — https, not localhost, the
+  revalidation secret present — under production rules, and exits non-zero.
+  Run it in the release pipeline, where failing is the point.
+
+This exists because `SITE_URL` used to be read in four files with three
+different inline fallbacks. A stale value (`:3220`, left over from a design
+snapshot) therefore shipped a sitemap, an RSS feed, a `robots.txt` and
+every canonical tag pointing at a port nothing listened on — a deployment
+that looks completely healthy while being invisible to search engines and
+broken in every shared link.
 
 ## Scripts
 
@@ -70,6 +89,7 @@ Copy `.env.example` to `.env.local`; that file is git-ignored.
 | `npm start`         | Serves the production build (run after `build`) |
 | `npm run lint`      | `eslint .`                                      |
 | `npm run typecheck` | `tsc --noEmit`                                  |
+| `npm run check:env` | Refuses a deploy whose configuration is not production-ready |
 
 ## Brand and design tokens
 
@@ -270,12 +290,22 @@ Components that fetch per-request, route handlers, and per-user pages.
 2. Set `API_BASE_URL` to the backend's origin as reachable **from this
    server** (private network address is ideal), `SITE_URL` to this app's
    public origin, and `REVALIDATE_SECRET` to the same value the backend has.
-3. `npm start`, or deploy to a platform that runs a Next.js server
-   natively (Vercel, or any Node host/container running `next start`).
-4. Serve over HTTPS: the backend sets the session cookie `Secure` in
+3. `npm run check:env` with the values this release will actually use —
+   it exits non-zero on a `SITE_URL` that is http, localhost, or missing.
+4. `npm start`, or deploy to a platform that runs a Next.js server
+   natively (Vercel, or any Node host/container). `Dockerfile` builds a
+   production image from Next's standalone output; pass `SITE_URL` as a
+   **build arg as well as** an env var, since the prerendered
+   `robots.txt` and sitemap bake it in.
+5. Serve over HTTPS: the backend sets the session cookie `Secure` in
    production, and the proxy relays it as-is.
-5. If you front this with a CDN, never cache `/staff/*`, `/api/backend/*`
+6. If you front this with a CDN, never cache `/staff/*`, `/api/backend/*`
    or `/api/revalidate`; they must always be fresh and per-user.
+7. `node ../scripts/smoke.mjs --api=… --site=…` against the running
+   release — it checks, among other things, that the absolute URLs in
+   `robots.txt` and the sitemap match the site actually deployed.
+
+`docs/28-deployment-runbook.md` is the full procedure, including rollback.
 
 ## Known gaps
 
@@ -289,6 +319,14 @@ Components that fetch per-request, route handlers, and per-user pages.
   in `lib/site.ts`, and placeholder desk names on `/about` — replace
   before the public sees them (`docs/27` E1). No production logo vector
   from the client yet; `public/brand/*.svg` are reconstructions.
+- **An unknown section URL returns 500, not 404, while the API is down.**
+  `/anything` matches `app/[category]`, which must ask the API whether that
+  section exists; with the API unreachable it cannot know, so the error
+  page is the honest answer. The chrome (nav, footer, "latest" strips)
+  degrades to empty rather than failing (`docs/27` A6), and cached public
+  pages keep serving throughout — only an uncached, unresolvable address
+  is affected. Next.js has no supported way to answer a page render with
+  503, which is the status a crawler should see for this.
 - **No `GET /public/search`** — reader search scans the public list
   (bounded). Fine at this size; a real endpoint is a day's work on the
   API and a one-function swap here.

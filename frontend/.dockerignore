@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+build
+.env
+.env.local
+.env.*.local
+!.env.example
+*.log
+*.tsbuildinfo
+next-env.d.ts
+.claude
+Anvay Frontend Wireframe3
+AGENTS.md
+CLAUDE.md
+Dockerfile
+.dockerignore
