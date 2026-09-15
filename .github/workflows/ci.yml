@@ -23,18 +23,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      # Surfaces npm's own error text as a workflow annotation. Actions logs
-      # need a signed-in session to read; annotations do not, so when an
-      # install fails the reason is visible from the API instead of being
-      # locked behind the log viewer.
-      - name: Install
-        run: |
-          set -o pipefail
-          if ! npm ci 2>&1 | tee /tmp/npm-ci.log; then
-            summary=$(grep -aE 'npm (error|ERR!|warn EBADENGINE)' /tmp/npm-ci.log | head -25 | awk '{printf "%s ~ ", $0}' | cut -c1-3000)
-            echo "::error title=npm ci failed::${summary}"
-            exit 1
-          fi
+      - run: npm ci
       # Explicit, not left to @prisma/client's postinstall. That hook is a
       # side effect of installing, and when it silently does not run the
       # client is a stub — typecheck then fails with "'@prisma/client' has
@@ -64,18 +53,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      # Surfaces npm's own error text as a workflow annotation. Actions logs
-      # need a signed-in session to read; annotations do not, so when an
-      # install fails the reason is visible from the API instead of being
-      # locked behind the log viewer.
-      - name: Install
-        run: |
-          set -o pipefail
-          if ! npm ci 2>&1 | tee /tmp/npm-ci.log; then
-            summary=$(grep -aE 'npm (error|ERR!|warn EBADENGINE)' /tmp/npm-ci.log | head -25 | awk '{printf "%s ~ ", $0}' | cut -c1-3000)
-            echo "::error title=npm ci failed::${summary}"
-            exit 1
-          fi
+      - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
@@ -126,18 +104,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: backend/package-lock.json
-      # Surfaces npm's own error text as a workflow annotation. Actions logs
-      # need a signed-in session to read; annotations do not, so when an
-      # install fails the reason is visible from the API instead of being
-      # locked behind the log viewer.
-      - name: Install
-        run: |
-          set -o pipefail
-          if ! npm ci 2>&1 | tee /tmp/npm-ci.log; then
-            summary=$(grep -aE 'npm (error|ERR!|warn EBADENGINE)' /tmp/npm-ci.log | head -25 | awk '{printf "%s ~ ", $0}' | cut -c1-3000)
-            echo "::error title=npm ci failed::${summary}"
-            exit 1
-          fi
+      - run: npm ci
       - run: npx prisma generate
 
       # Before: the database exists, the schema does not. This is the check
