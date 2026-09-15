@@ -264,7 +264,7 @@ async function postChecks(): Promise<void> {
     return ["FAIL", missing.map(([name, why]) => `${name} (${why})`).join("; ")];
   });
 
-  await check("foreign keys and unique constraints are enforced", async () => {
+  await check("foreign keys and uniqueness are enforced", async () => {
     const counts = await rows<{ contype: string; n: bigint }>(
       `SELECT contype, count(*) AS n FROM pg_constraint c
          JOIN pg_class t ON t.oid = c.conrelid
@@ -273,12 +273,37 @@ async function postChecks(): Promise<void> {
     );
     const by = Object.fromEntries(counts.map((c) => [c.contype, Number(c.n)]));
     const fk = by.f ?? 0;
-    const unique = by.u ?? 0;
     const checks = by.c ?? 0;
-    // The composite FK that makes Article.currentPublishedRevisionId
-    // unable to point at another article's revision (I-3) is one of these.
-    if (fk === 0 || unique === 0) return ["FAIL", `foreign keys: ${fk}, unique: ${unique}`];
-    return ["PASS", `${fk} foreign keys, ${unique} unique, ${checks} check constraints`];
+
+    // Uniqueness has to be counted from pg_index, not pg_constraint.
+    // Prisma emits every @unique and @@unique as CREATE UNIQUE INDEX, which
+    // enforces the rule just as well but records no row with contype 'u'.
+    // Counting constraints therefore reported "unique: 0" against a
+    // perfectly healthy schema — a false alarm that would have blocked a
+    // release, and one that hid the two indexes carrying I-1 and I-2.
+    const uniqueIndexes = await rows<{ indexname: string }>(
+      `SELECT ci.relname AS indexname
+         FROM pg_index i
+         JOIN pg_class ci ON ci.oid = i.indexrelid
+         JOIN pg_class t ON t.oid = i.indrelid
+         JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'public' AND i.indisunique AND NOT i.indisprimary`,
+    );
+    const names = new Set(uniqueIndexes.map((i) => i.indexname));
+
+    // These two are not ordinary uniqueness: they are how the partial
+    // invariants are expressed at all (at most one open revision, at most
+    // one published revision, per article — docs/26 §1.7). Losing either
+    // silently allows two open revisions on one story.
+    const required = [
+      "article_revisions_article_id_open_marker_key",
+      "article_revisions_article_id_published_marker_key",
+    ];
+    const missing = required.filter((i) => !names.has(i));
+
+    if (fk === 0) return ["FAIL", "no foreign keys at all — the schema is not what the migrations describe"];
+    if (missing.length > 0) return ["FAIL", `missing invariant index: ${missing.join(", ")}`];
+    return ["PASS", `${fk} foreign keys, ${names.size} unique indexes, ${checks} check constraints`];
   });
 
   await check("no constraint is NOT VALID", async () => {
