@@ -43,3 +43,15 @@ export class ConflictError extends HttpError {
     super(409, message);
   }
 }
+
+/// 503 — the request is fine, this process temporarily cannot serve it
+/// (the database is unreachable, a transaction timed out under load).
+/// Distinct from 500 on purpose: 500 means "we have a bug, retrying will
+/// not help", 503 means "try again shortly", and the two need different
+/// alerts, different client behaviour and different on-call responses.
+/// The error handler adds Retry-After to every response built from this.
+export class ServiceUnavailableError extends HttpError {
+  constructor(message = "The service is temporarily unavailable. Please try again in a moment.") {
+    super(503, message);
+  }
+}

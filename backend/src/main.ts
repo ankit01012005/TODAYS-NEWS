@@ -4,15 +4,22 @@ import { createApp } from "./app";
 import { config } from "./config";
 import { disconnectDb } from "./db";
 import { verifyMailer } from "./mail";
+import { logger } from "./common/logger";
+import { startSessionReaper, stopSessionReaper } from "./common/session-reaper";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 const app = createApp();
 
 const server = app.listen(config.PORT, "0.0.0.0", () => {
-  // eslint-disable-next-line no-console
-  console.log(`Today_news API listening on port ${config.PORT} (mail: ${config.MAIL_TRANSPORT})`);
+  logger.info("server.started", {
+    port: config.PORT,
+    env: config.NODE_ENV,
+    mailTransport: config.MAIL_TRANSPORT,
+    revalidation: config.REVALIDATE_SECRET ? "enabled" : "disabled",
+  });
   void verifyMailer();
+  startSessionReaper();
 });
 
 // Give a slow client a bounded time to finish; without these a stuck
@@ -29,19 +36,19 @@ let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
-  // eslint-disable-next-line no-console
-  console.log(JSON.stringify({ time: new Date().toISOString(), level: "info", event: "shutdown", signal }));
+  logger.info("server.shutdown", { signal });
 
   const forced = setTimeout(() => {
-    // eslint-disable-next-line no-console
-    console.error("Shutdown deadline reached; exiting with open connections");
+    logger.error("server.shutdown_forced", { signal, afterMs: SHUTDOWN_TIMEOUT_MS });
     process.exit(1);
   }, SHUTDOWN_TIMEOUT_MS);
   forced.unref();
 
+  stopSessionReaper();
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await disconnectDb();
   clearTimeout(forced);
+  logger.info("server.stopped", { signal });
   process.exit(0);
 }
 
@@ -52,6 +59,14 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 // it with the same shape as everything else and keep serving; the error
 // handler already turns per-request failures into clean 500s.
 process.on("unhandledRejection", (reason) => {
-  // eslint-disable-next-line no-console
-  console.error(JSON.stringify({ time: new Date().toISOString(), level: "error", event: "unhandledRejection" }), reason);
+  logger.error("process.unhandledRejection", { err: reason });
+});
+
+// An uncaught exception is different: the stack that threw was abandoned
+// part-way, so this process's in-memory state is no longer trustworthy.
+// Log it, then drain and exit so the platform starts a clean one — the
+// node default is to exit anyway, but silently and without draining.
+process.on("uncaughtException", (error) => {
+  logger.error("process.uncaughtException", { err: error });
+  void shutdown("uncaughtException").then(() => process.exit(1));
 });

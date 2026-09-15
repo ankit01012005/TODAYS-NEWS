@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { logger } from "../common/logger";
 
 /// docs/27 B3 — publish-time cache invalidation. Public pages are served
 /// from the Next.js app's data cache (frontend/lib/api/public.ts tags every
@@ -33,16 +34,6 @@ export function invalidatePublicCache(reason: "publish" | "unpublish", articleId
       if (!res.ok) throw new Error(`frontend answered ${res.status}`);
     })
     .catch((error: unknown) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          time: new Date().toISOString(),
-          level: "error",
-          event: "cache.revalidate.failed",
-          reason,
-          articleId,
-          message: error instanceof Error ? error.message : String(error),
-        }),
-      );
+      logger.error("cache.revalidate.failed", { reason, articleId, err: error });
     });
 }

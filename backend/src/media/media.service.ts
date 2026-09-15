@@ -6,6 +6,7 @@ import { sniffImageType } from "./image-sniff";
 import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from "../common/http-errors";
 import { AuthenticatedUser } from "../common/authenticated-user";
 import { writeAudit } from "../common/audit";
+import { logger } from "../common/logger";
 
 /// SEC-10 — validated by content, stored under a generated key (never a
 /// user-supplied filename, which prevents path traversal and overwriting).
@@ -43,16 +44,7 @@ export async function uploadMedia(
     // up (docs/27 step 2). A failure here is logged, not surfaced — the
     // caller's error is the database one.
     await storage.delete(stored.key).catch((cleanupError: unknown) => {
-      // eslint-disable-next-line no-console
-      console.error(
-        JSON.stringify({
-          time: new Date().toISOString(),
-          level: "error",
-          event: "media.orphan_cleanup_failed",
-          key: stored.key,
-          message: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
-        }),
-      );
+      logger.error("media.orphan_cleanup_failed", { key: stored.key, err: cleanupError });
     });
     throw error;
   }

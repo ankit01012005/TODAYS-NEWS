@@ -7,6 +7,7 @@ import { generateOpaqueToken, hashToken } from "../common/token.util";
 import { BadRequestError, UnauthorizedError } from "../common/http-errors";
 import { appLink, mailer, passwordResetEmail } from "../mail";
 import { evictSession, evictSessionsForUser } from "../common/session-cache";
+import { logger } from "../common/logger";
 
 export const INVITATION_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const PASSWORD_RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -98,16 +99,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
         }),
       )
       .catch((error: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error(
-          JSON.stringify({
-            time: new Date().toISOString(),
-            level: "error",
-            event: "mail.reset.failed",
-            userId: user.id,
-            message: error instanceof Error ? error.message : String(error),
-          }),
-        );
+        logger.error("mail.reset.failed", { userId: user.id, err: error });
       });
   }
   // Deliberately no return value either way — the router sends the same

@@ -1,4 +1,5 @@
 import { config } from "../config";
+import { logger } from "../common/logger";
 import { Mailer } from "./mailer";
 import { ConsoleMailer } from "./console.mailer";
 import { SmtpMailer } from "./smtp.mailer";
@@ -35,17 +36,8 @@ export async function verifyMailer(): Promise<void> {
   if (!(mailer instanceof SmtpMailer)) return;
   try {
     await mailer.verify();
-    // eslint-disable-next-line no-console
-    console.log(JSON.stringify({ time: new Date().toISOString(), level: "info", event: "mail.smtp.verified" }));
+    logger.info("mail.smtp.verified");
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(
-      JSON.stringify({
-        time: new Date().toISOString(),
-        level: "error",
-        event: "mail.smtp.unreachable",
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
+    logger.error("mail.smtp.unreachable", { err: error });
   }
 }

@@ -6,6 +6,7 @@ import { INVITATION_TOKEN_TTL_MS, issueInvitationToken } from "../auth/auth.serv
 import { appLink, invitationEmail, mailer } from "../mail";
 import { StaffUserView, toStaffUserView } from "./staff-user.view";
 import { ConflictError, NotFoundError } from "../common/http-errors";
+import { logger } from "../common/logger";
 import { evictSessionsForUser } from "../common/session-cache";
 
 /// The exact text the BR-14 triggers raise (migration.sql, Phase 4B §2.7 and
@@ -86,16 +87,7 @@ async function sendInvitation(user: User, invitedBy: { displayName: string }): P
     );
   } catch (error) {
     emailDelivered = false;
-    // eslint-disable-next-line no-console
-    console.error(
-      JSON.stringify({
-        time: new Date().toISOString(),
-        level: "error",
-        event: "mail.invitation.failed",
-        userId: user.id,
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
+    logger.error("mail.invitation.failed", { userId: user.id, err: error });
   }
 
   return {

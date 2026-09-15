@@ -266,12 +266,22 @@ describe("auth.service", () => {
     it("swallows a delivery failure so the response can't reveal the account exists", async () => {
       mockedPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "editor@test.local", status: "ACTIVE" });
       mockedMailer.send.mockRejectedValueOnce(new Error("SMTP down"));
-      const errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      // The logger writes structured JSON straight to stderr (common/logger.ts),
+      // so that — not console.error — is what proves the failure was recorded.
+      // The suite runs at LOG_LEVEL=silent (jest.setup.js); this one test
+      // turns the level back up so there is a line to assert on.
+      const previousLevel = process.env.LOG_LEVEL;
+      process.env.LOG_LEVEL = "error";
+      const errorSpy = jest.spyOn(process.stderr, "write").mockImplementation(() => true);
 
       await expect(auth.requestPasswordReset("editor@test.local")).resolves.toBeUndefined();
       await new Promise((resolve) => setImmediate(resolve));
-      expect(errorSpy).toHaveBeenCalled();
+
+      const lines = errorSpy.mock.calls.map(([line]) => String(line));
       errorSpy.mockRestore();
+      process.env.LOG_LEVEL = previousLevel;
+      const logged = lines.map((line) => JSON.parse(line) as { event: string; userId?: string });
+      expect(logged.some((line) => line.event === "mail.reset.failed" && line.userId === "u1")).toBe(true);
     });
   });
 });

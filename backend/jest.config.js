@@ -5,5 +5,5 @@ module.exports = {
   rootDir: "src",
   testRegex: ".*\\.spec\\.ts$",
   moduleFileExtensions: ["js", "json", "ts"],
-  setupFiles: ["reflect-metadata"],
+  setupFiles: ["reflect-metadata", "<rootDir>/../jest.setup.js"],
 };
