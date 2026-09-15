@@ -10,7 +10,7 @@
 # itself the moment a second replica starts.
 
 # --- build ------------------------------------------------------------------
-FROM node:24-alpine AS build
+FROM node:24.21.0-alpine AS build
 WORKDIR /app
 
 # The schema is copied before `npm ci` because @prisma/client's postinstall
@@ -36,7 +36,7 @@ RUN cp -r node_modules/.prisma /tmp/prisma-client \
  && rm -rf /tmp/prisma-client
 
 # --- runtime ----------------------------------------------------------------
-FROM node:24-alpine AS runtime
+FROM node:24.21.0-alpine AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
