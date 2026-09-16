@@ -132,7 +132,7 @@ authoring capability at all. See §2.3.
 | Unpublish | ❌ | ❌ | ⚠️ (OQ-16) |
 | Schedule publication | ❌ | ❌ | ⚠️ (OQ-07) |
 | Archive | ❌ | ❌ | ⚠️ (OQ-13) |
-| Delete permanently | ❌ | ❌ | ⚠️ (OQ-12) |
+| Delete permanently | ❌ | ❌ | ✅ (OQ-12 → c: admin only, not while live, recorded) |
 | View an article's history | ❌ | ⚠️ own only | ✅ |
 
 ### 3.2 Sources

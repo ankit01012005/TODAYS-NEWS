@@ -1,33 +1,23 @@
-import { Newsreader, Inter, IBM_Plex_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
-/// docs/19 §1.2 — two families for the interface/editorial split, plus one
-/// used in exactly one place (timestamps/reference IDs). Weights limited to
-/// 400/600 per §1.2 rule 3 ("only two weights per family in V1").
-/// Newsreader's optical-size axis is loaded so the hero display sizes get
-/// the higher-contrast cut the face was drawn with, not a scaled-up text
-/// cut (brief §13 — "typography should do much of the visual work").
-/// next/font only allows extra axes on a `variable` weight; that is one
-/// file per style covering the range, and the stylesheet still uses only
-/// 400 and 600.
-export const newsreader = Newsreader({
+/// Anvay brand type (design_handoff_anvay_frontend/README.md "Type"):
+/// Archivo for everything — 800 for the wordmark and display numerals,
+/// 600 for labels, 400–500 for UI and body. The ANVAY TV lockup the client
+/// chose is a geometric sans, so the whole site speaks the same voice. The
+/// variable cut is one file for every weight used.
+export const archivo = Archivo({
   subsets: ["latin"],
   weight: "variable",
   style: ["normal", "italic"],
-  axes: ["opsz"],
-  variable: "--font-newsreader",
+  variable: "--font-archivo",
   display: "swap",
 });
 
-export const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
+/// IBM Plex Mono 400 — timestamps, version numbers, addresses, the audit
+/// log. The one place a second family is allowed.
 export const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
-  weight: ["400"],
+  weight: ["400", "500"],
   variable: "--font-ibm-plex-mono",
   display: "swap",
 });

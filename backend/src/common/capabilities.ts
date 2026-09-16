@@ -35,6 +35,8 @@ export type Capability =
   | "source:manage"
   | "category:manage"
   | "media:upload"
+  | "media:manage"
+  | "article:delete"
   | "user:manage"
   | "social:manage"
   | "audit:view";
@@ -67,6 +69,10 @@ const ADMIN_CAPABILITIES: ReadonlySet<Capability> = new Set<Capability>([
   "user:manage",
   "social:manage",
   "audit:view",
+  // Newsroom housekeeping: reconcile the media library with storage, and
+  // the rare, deliberate, recorded hard delete (OQ-12, option c).
+  "media:manage",
+  "article:delete",
 ]);
 
 const CAPABILITIES_BY_ROLE: Readonly<Record<UserRole, ReadonlySet<Capability>>> = {

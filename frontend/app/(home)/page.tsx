@@ -2,23 +2,20 @@ import { ViewTransition } from "react";
 import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicSite } from "@/components/layout/PublicSite";
-import { HeroStory } from "@/components/public/HeroStory";
-import { StoryGrid } from "@/components/public/StoryGrid";
+import { HandlesBar } from "@/components/layout/HandlesBar";
+import { StoryCard } from "@/components/public/StoryCard";
 import { JustIn } from "@/components/public/JustIn";
-import { TopStories } from "@/components/public/TopStories";
 import { SocialPicks } from "@/components/public/SocialPicks";
-import { EditorsPicks } from "@/components/public/EditorsPicks";
-import { CategorySection } from "@/components/public/CategorySection";
-import { WorldStage } from "@/components/public/WorldStage";
+import { DeskSection } from "@/components/public/DeskSection";
 import { EmptyState } from "@/components/public/EmptyState";
 import { getCategories, getCategoryWithArticles, getPublishedArticles, getSocialPicks } from "@/lib/api/public";
-import { PublicArticleSummary } from "@/lib/api/public-types";
+import { PublicArticleSummary, PublicCategoryRef } from "@/lib/api/public-types";
 
-/// PG-PUB-01. One list of published stories, newest first, allocated to
-/// compositions of decreasing weight (brief §4–§10): hero (1 + 3), the
-/// editorial grid (6) beside Just in (7 newest), Top stories (4),
-/// Editor's picks (one per desk not shown above), then every desk in
-/// turn. A story may legitimately reappear inside its own desk's section.
+/// 1a "Pulse Front". One list of published stories, newest first: the
+/// lead (articles[0]) at 16:9 with three secondaries beneath, a right
+/// rail of Just In (mono timestamps) and Top on social, then the handles
+/// bar and every desk in turn. Grid: 1fr 300px, 30px gap, 1080px max.
+/// A story may legitimately reappear inside its own desk's section.
 export default async function HomePage() {
   const [{ articles }, categories, socialPicks] = await Promise.all([
     getPublishedArticles(),
@@ -31,10 +28,10 @@ export default async function HomePage() {
     return (
       <PublicSite>
         <PublicHeader activeHome />
-        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 py-space-6 md:px-space-5">
+        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 py-space-7 md:px-space-6">
           <EmptyState
-            heading="No stories published yet"
-            body="Today News is just getting started. Check back soon for the latest coverage."
+            heading="The first story is on its way."
+            body="ANVAY TV is just getting started. A freshly set-up newsroom has no published stories yet — check back soon, or follow the handles for the pulse."
           />
         </main>
         <PublicFooter />
@@ -42,12 +39,8 @@ export default async function HomePage() {
     );
   }
 
-  const heroSecondary = articles.slice(1, 4);
-  const gridStories = articles.slice(4, 8);
-  const latest = articles.slice(0, 5);
-  const top = articles.slice(8, 12);
-  const shownAbove = new Set(articles.slice(0, 12).map((a) => a.slug));
-  const picks = pickOnePerDesk(articles, shownAbove, 4);
+  const secondaries = articles.slice(1, 4);
+  const justIn = articles.length > 7 ? articles.slice(4, 10) : articles.slice(0, 6);
 
   const sections = (
     await Promise.all(
@@ -56,66 +49,53 @@ export default async function HomePage() {
         return result && result.articles.length > 0 ? { category, articles: result.articles } : null;
       }),
     )
-  ).filter((s): s is { category: (typeof categories)[number]; articles: PublicArticleSummary[] } => s !== null);
-  const worldSection = sections.find(
-    ({ category }) => category.slug.toLowerCase() === "world" || category.name.toLowerCase() === "world",
-  );
-  const deskSections = sections.filter((section) => section !== worldSection);
+  ).filter((s): s is { category: PublicCategoryRef; articles: PublicArticleSummary[] } => s !== null);
 
   return (
     <PublicSite>
       <PublicHeader activeHome />
       <ViewTransition default="page-fade">
         <main id="content">
-          <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
-            <HeroStory lead={lead} secondary={heroSecondary} latest={latest} />
+          <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-5 md:px-space-6 md:pt-space-6">
+            <div className="grid grid-cols-1 gap-y-space-7 md:grid-cols-[minmax(0,1fr)_300px] md:gap-x-[30px]">
+              <div>
+                <StoryCard article={lead} variant="lead" preload headingLevel={1} />
+
+                {secondaries.length > 0 ? (
+                  <>
+                    <div className="reveal-stagger mt-space-6 hidden grid-cols-3 gap-x-space-4 border-t border-rule pt-space-5 sm:grid">
+                      {secondaries.map((article) => (
+                        <StoryCard key={article.slug} article={article} variant="standard" morph className="reveal" />
+                      ))}
+                    </div>
+                    <div className="mt-space-4 divide-y divide-rule border-t border-rule sm:hidden">
+                      {secondaries.map((article) => (
+                        <StoryCard key={article.slug} article={article} variant="compact" className="py-space-3" />
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+
+              <aside aria-label="Just in and top on social" className="md:border-l md:border-rule md:pl-[22px]">
+                <JustIn articles={justIn} />
+                <SocialPicks picks={socialPicks} className="mt-space-6" />
+              </aside>
+            </div>
           </div>
 
-          {gridStories.length > 0 ? (
-            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
-              <StoryGrid stories={gridStories} />
-            </div>
-          ) : (
-            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5">
-              <div className="md:max-w-(--width-measure)">
-                <JustIn articles={latest.slice(1)} />
-              </div>
-            </div>
-          )}
+          <div className="mt-space-8">
+            <HandlesBar />
+          </div>
 
-          {worldSection ? (
-            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
-              <WorldStage category={worldSection.category} articles={worldSection.articles.slice(0, 3)} />
-            </div>
-          ) : null}
-
-          {top.length >= 2 ? (
-            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
-              <TopStories stories={top} />
-            </div>
-          ) : null}
-
-          {socialPicks.length > 0 ? (
-            <div className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-8 md:px-space-5 md:pt-space-9">
-              <SocialPicks picks={socialPicks} />
-            </div>
-          ) : null}
-
-          {picks.length >= 2 ? (
-            <div className="pt-space-8 md:pt-space-9">
-              <EditorsPicks stories={picks} />
-            </div>
-          ) : null}
-
-          {deskSections.length > 0 ? (
-            <div className="mx-auto max-w-(--width-page-max) space-y-space-8 px-space-4 pt-space-8 md:space-y-space-9 md:px-space-5 md:pt-space-9">
-              {deskSections.map((section, index) => (
-                <CategorySection
+          {sections.length > 0 ? (
+            <div className="mx-auto max-w-(--width-page-max) space-y-space-8 px-space-4 pt-space-8 md:px-space-6">
+              {sections.map((section, index) => (
+                <DeskSection
                   key={section.category.slug}
                   category={section.category}
                   articles={section.articles}
-                  composition={(index % 3 === 0 ? "lead" : index % 3 === 1 ? "row" : "text")}
-                  tone={index % 4 === 2 ? "sage" : "paper"}
+                  composition={index % 2 === 0 ? "grid" : "lead"}
                 />
               ))}
             </div>
@@ -126,27 +106,3 @@ export default async function HomePage() {
     </PublicSite>
   );
 }
-
-/// Newest story from each desk that isn't already on the page above; if
-/// the site is still small enough that that yields fewer than two, fall
-/// back to one-per-desk regardless.
-function pickOnePerDesk(
-  all: PublicArticleSummary[],
-  exclude: Set<string>,
-  max: number,
-): PublicArticleSummary[] {
-  const select = (skipShown: boolean) => {
-    const seen = new Set<string>();
-    const picks: PublicArticleSummary[] = [];
-    for (const article of all) {
-      if ((skipShown && exclude.has(article.slug)) || seen.has(article.category.slug)) continue;
-      seen.add(article.category.slug);
-      picks.push(article);
-      if (picks.length === max) break;
-    }
-    return picks;
-  };
-  const strict = select(true);
-  return strict.length >= 2 ? strict : select(false);
-}
-

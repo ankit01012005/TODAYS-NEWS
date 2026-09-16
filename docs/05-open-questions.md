@@ -156,7 +156,16 @@ explicit correction note describing what changed.
 **Recommendation:** (b) for all material edits and (c) for factual corrections.
 Requires deciding who judges "material" — probably the publishing admin.
 
-### OQ-12 — Can articles ever be permanently deleted? 🔴
+### OQ-12 — Can articles ever be permanently deleted? ✅ **ANSWERED 2026-09-14**
+**ANSWER: (c)** — soft delete stays the default; a hard delete exists, is
+admin-only (`article:delete`), refused while the story is live (withdraw
+first), removes the article with all its revisions, citations and review
+decisions in one transaction, and is recorded as a `DELETE` audit row. The
+audit trail about the story is never removed — its article pointer is
+cleared. Implemented in `articles.service.ts` (`deleteArticlePermanently`)
+and migration `20260914120000_recorded_hard_delete`. *(Original analysis
+retained below.)*
+
 **Why it matters:** Permanent deletion conflicts with audit trails and with any
 legal obligation to retain records; but there are real cases (defamatory content,
 legal takedown, personal data) where deletion is required, not optional. This

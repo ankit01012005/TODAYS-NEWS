@@ -20,11 +20,23 @@ export interface AppEnv {
   SMTP_URL: string | null;
   MAIL_FROM: string | null;
   /// The public origin of the Next.js app, used to build the links inside
-  /// those emails (…/staff/accept-invitation?token=…).
+  /// those emails (…/staff/accept-invitation?token=…) and to reach its
+  /// cache-revalidation endpoint after a publish.
   APP_BASE_URL: string;
+  /// Shared secret the Next.js app's /api/revalidate route checks before
+  /// purging its public cache. Null means "don't call it" — acceptable in
+  /// development, refused in production (a withdrawn story must not stay
+  /// visible until a timer expires; docs/27 B3).
+  REVALIDATE_SECRET: string | null;
+  /// Media storage (docs/27 B1). One URL, in the form Cloudinary's
+  /// dashboard shows it: cloudinary://API_KEY:API_SECRET@CLOUD_NAME.
+  CLOUDINARY_URL: string;
+  /// Folder every upload lands in, so one Cloudinary account can host
+  /// several environments (today-news/production, today-news/staging, …).
+  CLOUDINARY_FOLDER: string;
 }
 
-const REQUIRED_KEYS = ["DATABASE_URL"] as const;
+const REQUIRED_KEYS = ["DATABASE_URL", "CLOUDINARY_URL"] as const;
 
 export function validateEnv(config: Record<string, unknown>): AppEnv {
   for (const key of REQUIRED_KEYS) {
@@ -69,7 +81,15 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     throw new Error(`Invalid TRUST_PROXY: ${String(config.TRUST_PROXY)}`);
   }
 
-  const mailTransport = String(config.MAIL_TRANSPORT ?? (nodeEnv === "production" ? "smtp" : "console"));
+  const smtpUrl = config.SMTP_URL ? String(config.SMTP_URL) : null;
+  const mailFrom = config.MAIL_FROM ? String(config.MAIL_FROM) : null;
+  // Unset MAIL_TRANSPORT follows the evidence: an SMTP_URL means "send real
+  // mail" in every environment; production always sends; otherwise print
+  // to the console. Configuring a provider and then watching the link land
+  // in stdout instead of the inbox is the failure this avoids.
+  const mailTransport = String(
+    config.MAIL_TRANSPORT ?? (nodeEnv === "production" || smtpUrl ? "smtp" : "console"),
+  );
   if (mailTransport !== "smtp" && mailTransport !== "console") {
     throw new Error(`Invalid MAIL_TRANSPORT: ${mailTransport} (expected "smtp" or "console")`);
   }
@@ -78,12 +98,14 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     // to start rather than fail on the first invite.
     throw new Error('MAIL_TRANSPORT must be "smtp" in production');
   }
-  const smtpUrl = config.SMTP_URL ? String(config.SMTP_URL) : null;
-  const mailFrom = config.MAIL_FROM ? String(config.MAIL_FROM) : null;
   if (mailTransport === "smtp") {
     if (!smtpUrl) throw new Error("SMTP_URL is required when MAIL_TRANSPORT=smtp");
     if (!/^smtps?:\/\//.test(smtpUrl)) throw new Error("SMTP_URL must start with smtp:// or smtps://");
-    if (!mailFrom) throw new Error("MAIL_FROM is required when MAIL_TRANSPORT=smtp");
+    if (!mailFrom) {
+      throw new Error(
+        'MAIL_FROM is required to send mail (SMTP_URL is set) — e.g. MAIL_FROM="Today News <newsroom@your-verified-domain>"',
+      );
+    }
   }
 
   const appBaseUrl = String(config.APP_BASE_URL ?? "http://localhost:3000");
@@ -95,6 +117,23 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
   }
   if (nodeEnv === "production" && parsedAppBaseUrl.protocol !== "https:") {
     throw new Error("APP_BASE_URL must be https in production (it goes into emailed links)");
+  }
+
+  const revalidateSecret = config.REVALIDATE_SECRET ? String(config.REVALIDATE_SECRET) : null;
+  if (nodeEnv === "production" && !revalidateSecret) {
+    throw new Error("REVALIDATE_SECRET is required in production (publish-time cache invalidation)");
+  }
+  if (revalidateSecret !== null && revalidateSecret.length < 32) {
+    throw new Error("REVALIDATE_SECRET must be at least 32 characters");
+  }
+
+  const cloudinaryUrl = String(config.CLOUDINARY_URL);
+  if (!/^cloudinary:\/\/[^:@\s]+:[^:@\s]+@[^\s/]+$/.test(cloudinaryUrl)) {
+    throw new Error("CLOUDINARY_URL must look like cloudinary://API_KEY:API_SECRET@CLOUD_NAME");
+  }
+  const cloudinaryFolder = String(config.CLOUDINARY_FOLDER ?? "today-news").replace(/^\/+|\/+$/g, "");
+  if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(cloudinaryFolder)) {
+    throw new Error(`Invalid CLOUDINARY_FOLDER: ${String(config.CLOUDINARY_FOLDER)}`);
   }
 
   return {
@@ -109,5 +148,8 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     SMTP_URL: smtpUrl,
     MAIL_FROM: mailFrom,
     APP_BASE_URL: parsedAppBaseUrl.origin,
+    REVALIDATE_SECRET: revalidateSecret,
+    CLOUDINARY_URL: cloudinaryUrl,
+    CLOUDINARY_FOLDER: cloudinaryFolder,
   };
 }

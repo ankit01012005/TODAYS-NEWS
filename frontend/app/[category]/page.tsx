@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ViewTransition } from "react";
@@ -6,99 +5,72 @@ import { PublicHeader } from "@/components/layout/PublicHeader";
 import { PublicFooter } from "@/components/layout/PublicFooter";
 import { PublicSite } from "@/components/layout/PublicSite";
 import { StoryCard } from "@/components/public/StoryCard";
+import { LoadMoreList } from "@/components/public/LoadMoreList";
 import { EmptyState } from "@/components/public/EmptyState";
 import { getCategoryWithArticles } from "@/lib/api/public";
-import { SITE_NAME } from "@/lib/site";
+import { TextReveal } from "@/components/motion/TextReveal";
 
 type PageProps = {
   params: Promise<{ category: string }>;
-  searchParams: Promise<{ cursor?: string }>;
 };
 
-/// PG-PUB-02 — docs/08 R-04: behaves as the homepage, filtered to one
-/// section, with its own composition (brief §8): a section opener, the
-/// newest story as a feature beside two typography stories, then the
-/// rest as a grid. Older pages come from the API's keyset cursor
-/// (public.service.ts) via ?cursor=. E-03: a section with nothing
+/// 1e — the section page: a big Archivo 800 section name over the 56px
+/// red underline, then list rows at 150×100 thumbs, newest first, and a
+/// Load more driven by the API's keyset cursor. A section with nothing
 /// published is a normal state, not a failure — never a blank page.
-export default async function CategoryPage({ params, searchParams }: PageProps) {
-  const [{ category: categorySlug }, { cursor }] = await Promise.all([params, searchParams]);
-  const result = await getCategoryWithArticles(categorySlug, cursor);
+export default async function CategoryPage({ params }: PageProps) {
+  const { category: categorySlug } = await params;
+  const result = await getCategoryWithArticles(categorySlug);
   if (!result) {
     notFound();
   }
 
   const [lead, ...rest] = result.articles;
-  const secondary = rest.slice(0, 2);
-  const grid = rest.slice(2);
-  const isFirstPage = !cursor;
 
   return (
     <PublicSite>
       <PublicHeader activeCategorySlug={result.category.slug} />
       <ViewTransition default="page-fade">
-        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-5 md:pt-space-7">
-          <header className="border-b-2 border-ink pb-space-4">
-            <p className="text-label text-brand">Section</p>
-            <h1 className="mt-space-1 text-display-1 text-ink">{result.category.name}</h1>
-            {!isFirstPage ? (
-              <p className="mt-space-2 text-meta text-ink-muted">
-                Older stories ·{" "}
-                <Link href={`/${result.category.slug}`} className="link-underline text-ink-secondary">
-                  Back to the newest
-                </Link>
-              </p>
-            ) : null}
+        <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 pt-space-6 md:px-space-6 md:pt-space-7">
+          <header>
+            <TextReveal as="h1" text={result.category.name} className="text-display-0 text-ink" />
+            <div className="section-underline mt-space-3" aria-hidden="true" />
+            <p className="mt-space-4 max-w-[60ch] text-body text-ink-secondary">
+              The newest reporting from the {result.category.name} desk, reviewed by an editor before it was published.
+            </p>
           </header>
 
           {lead ? (
-            <>
-              <div className="mt-space-6 grid grid-cols-1 gap-y-space-6 md:grid-cols-12 md:gap-x-space-6">
-                <StoryCard article={lead} variant="feature" morph preload className="md:col-span-8" />
-                {secondary.length > 0 ? (
-                  <div className="divide-y divide-rule md:col-span-4 md:border-l md:border-rule md:pl-space-6">
-                    {secondary.map((article) => (
-                      <StoryCard
-                        key={article.slug}
-                        article={article}
-                        variant="text"
-                        className="py-space-5 first:pt-0"
-                      />
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              {grid.length > 0 ? (
-                <div className="reveal-stagger mt-space-8 grid grid-cols-1 gap-x-space-6 gap-y-space-7 border-t border-rule pt-space-6 sm:grid-cols-2 md:grid-cols-3">
-                  {grid.map((article) => (
-                    <StoryCard
-                      key={article.slug}
-                      article={article}
-                      variant="standard"
-                      morph
-                      className="reveal"
-                    />
+            <div className="mt-space-6 grid grid-cols-1 gap-x-space-8 md:grid-cols-[minmax(0,1fr)_300px]">
+              <div>
+                <StoryCard article={lead} variant="lead" preload headingLevel={2} />
+                <div className="reveal-stagger mt-space-6 divide-y divide-rule border-t border-rule">
+                  {rest.map((article) => (
+                    <StoryCard key={article.slug} article={article} variant="row" morph className="reveal py-space-4" />
                   ))}
                 </div>
-              ) : null}
-
-              {result.nextCursor ? (
-                <nav aria-label="Older stories" className="mt-space-8 flex justify-center border-t border-rule pt-space-6">
-                  <Link
-                    href={`/${result.category.slug}?cursor=${encodeURIComponent(result.nextCursor)}`}
-                    className="inline-flex h-11 items-center gap-x-space-2 rounded-pill border border-ink px-space-5 text-meta text-ink no-underline transition-[background-color,color] duration-(--duration-fast) hover:bg-ink hover:text-paper"
-                  >
-                    Older stories <span aria-hidden="true">→</span>
-                  </Link>
-                </nav>
-              ) : null}
-            </>
+                <LoadMoreList
+                  categorySlug={result.category.slug}
+                  initialCursor={result.nextCursor}
+                  variant="row"
+                  exclude={result.articles.map((a) => a.slug)}
+                />
+              </div>
+              <aside className="hidden md:block">
+                <div className="sticky top-16 border-t-2 border-ink pt-space-3">
+                  <p className="text-label-lg text-ink">About this desk</p>
+                  <p className="mt-space-3 text-body-sm text-ink-secondary">
+                    Every story here carries the section in its address — <span className="text-mono text-ink">/{result.category.slug}/…</span> —
+                    and that address never changes once a story is published.
+                  </p>
+                </div>
+              </aside>
+            </div>
           ) : (
             <div className="mt-space-6">
               <EmptyState
                 heading={`No ${result.category.name} coverage yet`}
-                body={`Nothing has been published in ${result.category.name} so far. The rest of the paper is waiting.`}
+                body={`Nothing has been published in ${result.category.name} so far. The rest of the site is waiting.`}
                 action={{ href: "/", label: "Read the front page" }}
               />
             </div>
@@ -113,6 +85,8 @@ export default async function CategoryPage({ params, searchParams }: PageProps) 
 export async function generateMetadata({ params }: { params: Promise<{ category: string }> }): Promise<Metadata> {
   const { category: categorySlug } = await params;
   const result = await getCategoryWithArticles(categorySlug);
-  if (!result) return {};
-  return { title: `${result.category.name} — ${SITE_NAME}` };
+  // Thrown here, before the loading boundary streams, so an unknown
+  // section answers with a real 404 status — not a 200 with a 404 page.
+  if (!result) notFound();
+  return { title: result.category.name };
 }

@@ -8,6 +8,11 @@ export interface RevisionView {
   id: string;
   articleId: string;
   state: ArticleRevision["state"];
+  /// The section and byline THIS revision proposes (docs/27 A1). Until it
+  /// is published, ArticleDetailView's own categoryId/bylineOverride —
+  /// what readers currently see — may differ.
+  categoryId: string;
+  bylineOverride: string | null;
   headline: string | null;
   summary: string | null;
   body: unknown;
@@ -29,6 +34,8 @@ export interface RevisionView {
 export interface ArticleDetailView {
   id: string;
   slug: string;
+  /// The PUBLISHED section and byline — only the publish transition writes
+  /// these (docs/27 A1). The editor works on the open revision's copy.
   categoryId: string;
   ownerId: string;
   bylineOverride: string | null;
@@ -51,6 +58,8 @@ export function toRevisionView(revision: ArticleRevision): RevisionView {
     id: revision.id,
     articleId: revision.articleId,
     state: revision.state,
+    categoryId: revision.categoryId,
+    bylineOverride: revision.bylineOverride,
     headline: revision.headline,
     summary: revision.summary,
     body: revision.body,
@@ -188,12 +197,12 @@ export interface ReviewQueueEntryView extends RevisionView {
 
 export function toReviewQueueEntryView(
   revision: ArticleRevision & {
+    category: { id: string; name: string; slug: string };
     article: {
       id: string;
       slug: string;
       ownerId: string;
       owner: { displayName: string };
-      category: { id: string; name: string; slug: string };
     };
   },
   previouslySentBack: boolean,
@@ -205,7 +214,9 @@ export function toReviewQueueEntryView(
       slug: revision.article.slug,
       ownerId: revision.article.ownerId,
       ownerDisplayName: revision.article.owner.displayName,
-      category: revision.article.category,
+      // The revision's proposed section (docs/27 A1) — kept under
+      // `article` so the queue's row shape is unchanged for the client.
+      category: revision.category,
     },
     previouslySentBack,
   };

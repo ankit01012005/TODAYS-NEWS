@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+**/*.spec.ts
+jest.config.js
+jest.setup.js
+Dockerfile
+.dockerignore

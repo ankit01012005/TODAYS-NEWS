@@ -20,7 +20,7 @@ it**, with the PR number.
 
 ## A. Launch blockers — correctness
 
-- [ ] **A1 [REQUIRED] Public metadata can bypass review.** `Article.categoryId`
+- [x] **A1 [REQUIRED] Public metadata can bypass review.** *(closed: chore-production-hardening — `categoryId`/`bylineOverride` moved onto `ArticleRevision`; `Article`'s copies are written only by the publish transition.)* `Article.categoryId`
   and `Article.bylineOverride` are written directly by
   `articles.service.ts saveArticleContent`, so saving a correction changes the
   live story's section (and therefore its URL) and public byline while the
@@ -28,34 +28,34 @@ it**, with the PR number.
   (or freeze them on `Article` until approval) so what readers see only
   changes on publish. *Verified 2026-09-11.*
 
-- [ ] **A2 [REQUIRED] Save is not atomic.** In the same function the
+- [x] **A2 [REQUIRED] Save is not atomic.** *(closed: chore-production-hardening — one `$transaction`, one guarded `updateMany`, rollback on version mismatch.)* In the same function the
   category/byline updates run outside any transaction and *before* the
   `result.count === 0` version check — a stale editor receives a 409 yet has
   already changed those fields. Wrap the revision update, the version check
   and any article-level writes in one `prisma.$transaction`, and abort the
   whole thing on a version mismatch. *Verified 2026-09-11.*
 
-- [ ] **A3 [REQUIRED] Source attach/detach ignores the revision version.**
+- [x] **A3 [REQUIRED] Source attach/detach ignores the revision version.** *(closed: chore-production-hardening — `version` required on attach (body) and detach (query); guarded update bumps the revision version and returns it.)*
   `sources.service.ts` checks the open revision's state but writes without
   its version, so a request in flight can land after the article enters
   review. Require `version` on attach/detach, apply it with the same
   guarded-update pattern as saving, and bump the revision version so the
   admin never reviews a citation list that changed underneath them.
 
-- [ ] **A4 [REQUIRED] Password-reset consumption is not atomic, and password
-  changes keep other sessions alive.** `auth.service.ts setPasswordWithToken`
+- [x] **A4 [REQUIRED] Password-reset consumption is not atomic, and password
+  changes keep other sessions alive.** *(closed: chore-production-hardening — conditional `updateMany` consumes the token; every other session is revoked on any password set/change.)* `auth.service.ts setPasswordWithToken`
   reads then updates; two simultaneous requests can both pass. Consume the
   token with a conditional `updateMany` (hash matches AND not expired) and
   treat `count === 0` as invalid. On any password set or change, revoke every
   other session for that user (SEC-05's spirit).
 
-- [ ] **A5 [REQUIRED] Post-login redirect is an open redirect.**
+- [x] **A5 [REQUIRED] Post-login redirect is an open redirect.** *(closed: chore-production-hardening — `safeStaffPath()` accepts only `/staff…` paths.)*
   `SignInForm.tsx` pushes `searchParams.get("from")` unvalidated. Accept only
   same-origin paths that start with `/staff/` (reject schemes, `//`,
   backslashes, and anything else); fall back to `/staff`. *Verified
   2026-09-11.*
 
-- [ ] **A6 [REQUIRED] The frontend build depends on a live API.** Every
+- [x] **A6 [REQUIRED] The frontend build depends on a live API.** *(closed: `caa1944` — public reads wait for `connection()`; build succeeds with the API down.)* Every
   prerendered page (`/`, `/_not-found`, the static pages via the masthead's
   category fetch) calls the API at build time; if it is unreachable, `next
   build` fails, so an API outage blocks a frontend deploy. Optional content
@@ -66,20 +66,27 @@ it**, with the PR number.
 
 ## B. Launch blockers — infrastructure
 
-- [ ] **B1 [REQUIRED] Object storage for media.** `media/storage.ts` is a
+- [x] **B1 [REQUIRED] Object storage for media.** *(closed: chore-production-hardening — Cloudinary adapter; CDN URL stored on `MediaAsset.url`; body image URLs resolved server-side; `/uploads` route and rewrite removed.)* `media/storage.ts` is a
   local-disk adapter: uploads vanish on redeploy, a second instance can't see
   them, rolling deploys serve broken images, and there is no backup. Ship an
   S3-compatible adapter behind the same interface, return CDN URLs from
   `public.view.ts`, and drop the `/uploads` rewrite in `next.config.ts`.
 
-- [ ] **B2 [REQUIRED] Deployment system.** There is no CI, container
-  definition, infrastructure config or release pipeline. Minimum: managed
-  PostgreSQL, staging + production, domain/HTTPS/CDN, secrets management,
-  `prisma migrate deploy` in the release step, a rollback procedure, database
-  backups with point-in-time recovery, a *tested* restore, and post-deploy
-  smoke checks against `/health`, `/ready` and one public page.
+- [ ] **B2 [REQUIRED] Deployment system.** *(repository half done
+  2026-09-15: CI covers backend typecheck/test/build, frontend
+  lint/typecheck/build plus a configuration gate, and a job that applies
+  every migration to an empty PostgreSQL and verifies the result. Added:
+  `backend/Dockerfile` and `frontend/Dockerfile` (non-root, tini, health
+  checks, standalone Next output), `backend` `npm run db:verify`
+  (`--stage=pre|post`), `frontend` `npm run check:env`, `scripts/smoke.mjs`,
+  and the release/rollback procedure in `docs/28-deployment-runbook.md`.)*
+  **Still open — account-level setup, not repository content:** managed
+  PostgreSQL provisioning, staging + production environments,
+  domain/HTTPS/CDN, secrets management, database backups with
+  point-in-time recovery and a *tested* restore. The pipeline steps and
+  the checks they run now exist; somewhere to run them does not.
 
-- [ ] **B3 [REQUIRED] Publish-time cache invalidation.** Public pages
+- [x] **B3 [REQUIRED] Publish-time cache invalidation.** *(closed: chore-production-hardening — public fetches tagged `public`; API calls `POST /api/revalidate` with `REVALIDATE_SECRET` after publish/unpublish commits; `expire: 0`.)* Public pages
   revalidate on a fixed 60 s (`frontend/lib/api/public.ts`); publishing,
   correcting or withdrawing does not invalidate the story, homepage, section,
   sitemap or feed, so a withdrawn story can stay visible for a minute (longer
@@ -87,13 +94,17 @@ it**, with the PR number.
   (tag- or path-based, shared secret) from the publish/unpublish/correct
   transitions, and the CDN must honour it.
 
-- [ ] **B4 [REQUIRED] Tests that touch the real system.** Backend tests mock
-  Prisma; the PostgreSQL triggers (BR-14, append-only audit, publication
-  markers) and concurrent review/publish behaviour have no automated
-  coverage. Commit: an integration suite against a real database (the
-  `verify-*.ts` scripts written during development are the starting point),
-  one browser test of write → submit → publish → live, and frontend
-  component tests for the editor and users page. Run them in CI (B2).
+- [ ] **B4 [REQUIRED] Tests that touch the real system.** *(partly closed
+  2026-09-15: the CI `database` job runs `prisma migrate deploy` against a
+  real PostgreSQL 16 from an empty database, then `db:verify --stage=post`,
+  which asserts every invariant-bearing trigger and constraint is present
+  and that the data satisfies I-1 … I-4, marker sync, BR-14 and BR-06. It
+  also proves migrations are idempotent and that `schema.prisma` has not
+  drifted from them.)* **Still open:** behavioural integration tests that
+  exercise the triggers by trying to violate them (two concurrent publishes,
+  an UPDATE against `audit_logs`, deactivating the last admin), one browser
+  test of write → submit → publish → live, and frontend component tests for
+  the editor and users page.
 
 ## C. Multi-instance and growth
 
@@ -112,9 +123,15 @@ it**, with the PR number.
   media, sources and users lists are unbounded. Add server-side filtering
   and pagination to `/articles`, `/admin/review-queue` and `/media`.
 
-- [ ] **C4 [SOON AFTER] Observability.** Add an error tracker, request
-  latency/error-rate metrics, alerting on `/ready` failures and 5xx rate,
-  and an external uptime check — readers must not be the first to notice.
+- [ ] **C4 [SOON AFTER] Observability.** *(foundation laid 2026-09-15:
+  one structured JSON logger for the whole process
+  (`backend/src/common/logger.ts`) with level control and credential
+  redaction; database failures now answer 503 + `Retry-After` and log
+  `request.unavailable`, distinct from a genuine bug's `request.unhandled`,
+  so the two can be alerted on separately. `docs/28` §7 lists the events
+  worth alerting on.)* **Still open:** an error tracker, latency and
+  error-rate metrics, alert rules wired to those events, and an external
+  uptime check — readers must not be the first to notice.
 
 - [ ] **C5 [SOON AFTER] Image processing.** Uploads are buffered whole in
   memory (10 MB × concurrent uploads) and only signature-checked. Decode and
@@ -147,9 +164,13 @@ it**, with the PR number.
 ## E. Before the public sees it
 
 - [ ] **E1 [REQUIRED] Replace placeholders.** Contact addresses use
-  `todaynews.example`, branding is provisional (OQ-38 / P3-01), and the
-  privacy text assumes no analytics. Real organisation, jurisdiction,
-  contact process, analytics policy and corrections policy are needed.
+  `@anvaytv.example` and the social handles, reach figures and TV bulletins
+  are placeholder config — all of it in one file,
+  `frontend/lib/site.ts`. The privacy text assumes no analytics. Real
+  organisation, jurisdiction, contact process, analytics policy and
+  corrections policy are needed. *(Also still test data in the database as
+  of 2026-09-15: two staff accounts with mistyped `@gamil.com` addresses
+  and six `verify-*` articles.)*
 
 ---
 

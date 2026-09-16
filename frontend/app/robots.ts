@@ -1,13 +1,12 @@
 import type { MetadataRoute } from "next";
+import { siteUrl as resolveSiteUrl } from "@/lib/env";
 
-/// PG-PUB-M2 — SEO-09. Nothing to disallow yet: this app is the public
-/// site only, no /staff route exists in it (5C/5D build the CMS as its
-/// own separate route tree, not built yet). Revisit once it does — the
-/// CMS must never be indexed.
+/// SEO-09 — the CMS and the proxy must never be indexed. The public site
+/// is everything else.
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.SITE_URL ?? "http://localhost:3000";
+  const siteUrl = resolveSiteUrl();
   return {
-    rules: { userAgent: "*", allow: "/" },
+    rules: { userAgent: "*", allow: "/", disallow: ["/staff", "/api", "/search"] },
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }

@@ -1,32 +1,42 @@
-import { getCategories } from "@/lib/api/public";
+import { getCategories, getPublishedArticlesOrEmpty } from "@/lib/api/public";
 import { Masthead } from "./Masthead";
 import { PrimaryNav } from "./PrimaryNav";
-import { LatestStrip } from "./LatestStrip";
+import { PulseBand } from "./PulseBand";
 
-/// docs/19 §2.4, restructured per brief §3 into a publication masthead:
-/// publication strip → wordmark → masthead rule → sticky section nav →
-/// "Just in" strip. The nav sits OUTSIDE the <header> element on purpose:
-/// position: sticky is bounded by its parent, so inside the header it
-/// would unstick as soon as the header scrolled away. `showLatest` is off
-/// on the article page so the strip doesn't compete with the headline
-/// (brief §12: the story dominates).
-///
-/// docs/19 §2.4 / SEO-09 — no public-facing element ever links into the
-/// back-office.
+/// The reader site's header, stacked as 1a draws it: masthead with the
+/// 3px red rule → sticky section nav → the dark Pulse band. The nav sits
+/// OUTSIDE the <header> element on purpose: position: sticky is bounded
+/// by its parent, so inside the header it would unstick as soon as the
+/// header scrolled away. `showPulse` is off on the article page so the
+/// ticker doesn't compete with the headline.
 export async function PublicHeader({
   activeCategorySlug,
   activeHome = false,
-  showLatest = true,
-}: { activeCategorySlug?: string; activeHome?: boolean; showLatest?: boolean } = {}) {
-  const categories = await getCategories();
+  activePath,
+  showPulse = true,
+}: {
+  activeCategorySlug?: string;
+  activeHome?: boolean;
+  activePath?: string;
+  showPulse?: boolean;
+} = {}) {
+  const [categories, latest] = await Promise.all([
+    getCategories(),
+    showPulse ? getPublishedArticlesOrEmpty() : Promise.resolve(null),
+  ]);
 
   return (
     <>
       <header>
-        <Masthead />
+        <Masthead categories={categories} />
       </header>
-      <PrimaryNav categories={categories} activeCategorySlug={activeCategorySlug} activeHome={activeHome} />
-      {showLatest ? <LatestStrip /> : null}
+      <PrimaryNav
+        categories={categories}
+        activeCategorySlug={activeCategorySlug}
+        activeHome={activeHome}
+        activePath={activePath}
+      />
+      {latest ? <PulseBand articles={latest.articles} /> : null}
     </>
   );
 }

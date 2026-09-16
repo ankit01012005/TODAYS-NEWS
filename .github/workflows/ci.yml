@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — typecheck, test, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # Explicit, not left to @prisma/client's postinstall. That hook is a
+      # side effect of installing, and when it silently does not run the
+      # client is a stub — typecheck then fails with "'@prisma/client' has
+      # no exported member 'Article'", which reads like a code error rather
+      # than a missing build step. The Dockerfile generates explicitly for
+      # the same reason.
+      - run: npm run prisma:generate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  frontend:
+    name: Frontend — lint, typecheck, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # The build never contacts the API (docs/27 A6); these only need to
+      # be well-formed.
+      API_BASE_URL: http://localhost:3001
+      SITE_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      # The gate that would have caught a SITE_URL left pointing at a dead
+      # development port — a deploy that looks healthy but publishes a
+      # sitemap, a feed and every canonical tag to an address nothing
+      # answers on. Run against production rules, not the CI placeholders.
+      - name: Configuration is deployable
+        env:
+          NODE_ENV: production
+          SITE_URL: https://example.com
+          API_BASE_URL: https://api.example.com
+          # Not a secret — a throwaway 32-char string so the length check runs.
+          REVALIDATE_SECRET: ci-placeholder-0123456789abcdef0
+        run: npm run check:env
+
+  database:
+    name: Database — migrate from zero, then verify
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    # A real PostgreSQL, not a mock. The invariants this project relies on
+    # most — the append-only audit log, BR-14's single active admin, the
+    # partial-uniqueness markers — exist only as triggers and constraints,
+    # and the unit suite mocks Prisma, so nothing exercised them until here
+    # (docs/27 B4).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: today_news
+          POSTGRES_PASSWORD: today_news
+          POSTGRES_DB: today_news_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U today_news"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://today_news:today_news@localhost:5432/today_news_ci?schema=public
+      DIRECT_DATABASE_URL: postgresql://today_news:today_news@localhost:5432/today_news_ci?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+
+      # Before: the database exists, the schema does not. This is the check
+      # that would refuse a release pointed at the wrong server.
+      - name: Verify before migrating
+        run: npm run db:verify -- --stage=pre
+
+      # Proves every migration applies to an empty database in order — the
+      # exact thing the release step does, which is never tested by a
+      # developer machine where the schema already exists.
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      # After: every migration landed, every trigger and constraint that
+      # carries an invariant is present, and the (empty) data satisfies all
+      # of them. A trigger dropped by hand leaves migrate status pristine
+      # and is caught only here.
+      - name: Verify after migrating
+        run: npm run db:verify -- --stage=post
+
+      # Re-running migrations must be a no-op: a redeploy of the same
+      # release, or a retried deploy step, must not fail or double-apply.
+      - name: Migrations are idempotent
+        run: |
+          npx prisma migrate deploy
+          npx prisma migrate status
+
+      # The schema Prisma would generate must match the migrations that
+      # were actually applied. A drift here means someone edited
+      # schema.prisma without creating a migration, and production would
+      # get a schema the code does not expect.
+      - name: No schema drift
+        run: npx prisma migrate diff --from-schema-datamodel prisma/schema.prisma --to-schema-datasource prisma/schema.prisma --exit-code

@@ -8,6 +8,10 @@ import {
   PublicSocialPick,
 } from "./public-types";
 
+/// The one cache tag every public read carries — what the API asks
+/// /api/revalidate to drop after a publish or withdrawal.
+export const PUBLIC_CACHE_TAG = "public";
+
 /// Server components call these directly at render/revalidation time
 /// (docs/23 §4.4 "public reads" row) — no session, no cookie, the same
 /// request shape any anonymous reader's browser would get if it could
@@ -19,10 +23,11 @@ async function publicFetch<T>(path: string): Promise<T | null> {
   await connection();
 
   const res = await fetch(`${apiBaseUrl()}${path}`, {
-    // Public pages are cache-first (docs/23 §16) — a later phase wires up
-    // real ISR revalidation tags on publish; for now, a short default
-    // keeps the homepage from going stale for long without one.
-    next: { revalidate: 60 },
+    // Public pages are cache-first (docs/23 §16). The API purges the
+    // "public" tag through /api/revalidate the moment a story is
+    // published, corrected or withdrawn (docs/27 B3); the 60 s window is
+    // only the safety net if that call ever fails.
+    next: { revalidate: 60, tags: [PUBLIC_CACHE_TAG] },
   });
 
   if (res.status === 404) {
@@ -49,11 +54,28 @@ export async function getPublishedArticle(
   );
 }
 
-/// docs/19 §2.4 — the masthead's section nav needs every category on every
-/// public page, not just section pages.
+/// The masthead's section nav needs every category on every public page,
+/// not just section pages — including the 404 and the static pages, which
+/// have no story data of their own. A failure here therefore degrades to
+/// an empty nav rather than taking the whole page down with it; the pages
+/// that genuinely need stories still throw from their own fetches.
 export async function getCategories(): Promise<PublicCategoryRef[]> {
-  const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
-  return result ?? [];
+  try {
+    const result = await publicFetch<PublicCategoryRef[]>("/public/categories");
+    return result ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/// The same tolerance for the chrome's "latest" strips (the Pulse band,
+/// the 404 page's "Meanwhile") — an empty list, never an error page.
+export async function getPublishedArticlesOrEmpty(): Promise<PublicArticleListResult> {
+  try {
+    return await getPublishedArticles();
+  } catch {
+    return { articles: [], nextCursor: null };
+  }
 }
 
 /// Brief §6/§7-adjacent — the front page's "Top on social" rail. Curated

@@ -6,6 +6,8 @@ import { INVITATION_TOKEN_TTL_MS, issueInvitationToken } from "../auth/auth.serv
 import { appLink, invitationEmail, mailer } from "../mail";
 import { StaffUserView, toStaffUserView } from "./staff-user.view";
 import { ConflictError, NotFoundError } from "../common/http-errors";
+import { logger } from "../common/logger";
+import { evictSessionsForUser } from "../common/session-cache";
 
 /// The exact text the BR-14 triggers raise (migration.sql, Phase 4B §2.7 and
 /// 20260911020000_admin_review_only_and_single_admin). Matched here so the
@@ -85,16 +87,7 @@ async function sendInvitation(user: User, invitedBy: { displayName: string }): P
     );
   } catch (error) {
     emailDelivered = false;
-    // eslint-disable-next-line no-console
-    console.error(
-      JSON.stringify({
-        time: new Date().toISOString(),
-        level: "error",
-        event: "mail.invitation.failed",
-        userId: user.id,
-        message: error instanceof Error ? error.message : String(error),
-      }),
-    );
+    logger.error("mail.invitation.failed", { userId: user.id, err: error });
   }
 
   return {
@@ -113,6 +106,8 @@ export async function changeRole(userId: string, role: UserRole): Promise<StaffU
   const user = await runGuardedByAdminInvariants(() =>
     prisma.user.update({ where: { id: userId }, data: { role } }),
   );
+  // Their next request must carry the new capabilities, not the cached role.
+  evictSessionsForUser(userId);
   return toStaffUserView(user);
 }
 
@@ -132,6 +127,7 @@ export async function deactivate(userId: string): Promise<StaffUserView> {
       return updated;
     }),
   );
+  evictSessionsForUser(userId);
   return toStaffUserView(user);
 }
 

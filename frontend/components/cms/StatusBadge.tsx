@@ -1,56 +1,98 @@
 import { RevisionState } from "@/lib/api/cms-types";
 
-/// docs/19 §2.6 / §1.1's article state palette — the single most reused
-/// component in the CMS. REJECTED is the one documented exception: solid
-/// danger fill with white text, never confusable with the outline-style
-/// CHANGES_REQUESTED badge (docs/09 §6 — the two must never be mistaken
-/// for each other).
-const STATE_META: Record<RevisionState, { label: string; dotClass: string; washClass: string; textClass: string }> = {
-  DRAFT: { label: "Draft", dotClass: "bg-state-draft", washClass: "bg-surface", textClass: "text-ink-secondary" },
-  IN_REVIEW: {
-    label: "In review",
-    dotClass: "bg-state-in-review",
-    washClass: "bg-accent-wash",
-    textClass: "text-ink-secondary",
-  },
+/// The seven RevisionState values as outline pills — one badge
+/// component, used on every list and every toolbar (1i). The colours are
+/// the handoff's article-state palette. CHANGES_REQUESTED sits on the
+/// gold wash with gold-deep ink; REJECTED is the one solid fill, so it
+/// can never be mistaken for a note to revise.
+const STATE_META: Record<RevisionState, { label: string; className: string }> = {
+  DRAFT: { label: "Draft", className: "border-state-draft text-state-draft" },
+  IN_REVIEW: { label: "In review", className: "border-state-in-review text-state-in-review" },
   CHANGES_REQUESTED: {
     label: "Changes requested",
-    dotClass: "bg-state-changes-requested",
-    washClass: "bg-attention-wash",
-    textClass: "text-ink-secondary",
+    className: "border-gold bg-gold-wash text-gold-deep",
   },
-  APPROVED: {
-    label: "Approved",
-    dotClass: "bg-state-approved",
-    washClass: "bg-success-wash",
-    textClass: "text-ink-secondary",
-  },
-  PUBLISHED: {
-    label: "Published",
-    dotClass: "bg-state-published",
-    washClass: "bg-success-wash",
-    textClass: "text-ink-secondary",
-  },
-  REJECTED: { label: "Rejected", dotClass: "", washClass: "bg-danger", textClass: "text-paper" },
-  ARCHIVED: {
-    label: "Archived",
-    dotClass: "bg-state-archived",
-    washClass: "bg-surface-sunken",
-    textClass: "text-ink-secondary",
-  },
+  APPROVED: { label: "Approved", className: "border-state-approved text-state-approved" },
+  PUBLISHED: { label: "Published", className: "border-state-published text-state-published" },
+  REJECTED: { label: "Rejected", className: "border-state-rejected bg-state-rejected text-paper" },
+  ARCHIVED: { label: "Archived", className: "border-state-archived text-state-archived" },
 };
 
-export function StatusBadge({ state, size = "sm" }: { state: RevisionState; size?: "sm" | "md" }) {
-  const meta = STATE_META[state];
-  const isRejected = state === "REJECTED";
-  const heightClass = size === "sm" ? "h-[22px] text-body-sm" : "h-7 text-body";
+export function stateLabel(state: RevisionState): string {
+  return STATE_META[state].label;
+}
 
+export function StatusBadge({
+  state,
+  size = "sm",
+  onDark = false,
+  className = "",
+}: {
+  state: RevisionState;
+  size?: "sm" | "md";
+  onDark?: boolean;
+  className?: string;
+}) {
+  const meta = STATE_META[state];
+  const sizeClass = size === "sm" ? "h-6 px-space-2 text-label" : "h-7 px-space-3 text-label-lg";
+  // On the dark toolbar the wash and the muted greys disappear; brighten.
+  const dark =
+    onDark && state === "CHANGES_REQUESTED"
+      ? "border-gold bg-transparent text-gold"
+      : onDark && state === "IN_REVIEW"
+        ? "border-[#9CC4E4] text-[#9CC4E4]"
+        : onDark && (state === "DRAFT" || state === "ARCHIVED")
+          ? "border-bone/50 text-bone"
+          : "";
   return (
     <span
-      className={`inline-flex items-center gap-x-1.5 whitespace-nowrap rounded-pill px-space-3 font-medium ${heightClass} ${meta.washClass} ${meta.textClass}`}
+      className={`inline-flex shrink-0 items-center gap-x-space-1 whitespace-nowrap rounded-pill border ${sizeClass} ${dark || meta.className} ${className}`}
     >
-      {!isRejected ? <span className={`h-2 w-2 shrink-0 rounded-full ${meta.dotClass}`} /> : null}
       {meta.label}
+    </span>
+  );
+}
+
+/// The story is live on the site — publicationStatus, not a revision
+/// state. Green dot with a slow ring, so a list scans for what readers
+/// can see right now.
+export function LiveBadge({ size = "sm", className = "" }: { size?: "sm" | "md"; className?: string }) {
+  const sizeClass = size === "sm" ? "h-6 px-space-2 text-label" : "h-7 px-space-3 text-label-lg";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center gap-x-space-2 whitespace-nowrap rounded-pill border border-success ${sizeClass} text-success ${className}`}
+    >
+      <span className="live-dot live-dot-sm" aria-hidden="true" />
+      Live
+    </span>
+  );
+}
+
+/// Generic small pill for roles, platforms and counts.
+export function Pill({
+  children,
+  tone = "ink",
+  className = "",
+}: {
+  children: React.ReactNode;
+  tone?: "ink" | "muted" | "brand" | "gold" | "success" | "bone";
+  className?: string;
+}) {
+  const color =
+    tone === "brand"
+      ? "border-brand text-brand"
+      : tone === "gold"
+        ? "border-gold-deep text-gold-deep"
+        : tone === "success"
+          ? "border-success text-success"
+          : tone === "muted"
+            ? "border-rule-strong text-ink-muted"
+            : tone === "bone"
+              ? "border-bone/40 text-bone"
+              : "border-rule-strong text-ink";
+  return (
+    <span className={`inline-flex h-6 shrink-0 items-center gap-x-space-1 whitespace-nowrap rounded-pill border px-space-2 text-label ${color} ${className}`}>
+      {children}
     </span>
   );
 }

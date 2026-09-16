@@ -20,14 +20,17 @@ export interface PublicArticleView {
     caption: string | null;
   } | null;
   publishedAt: string;
-  sources: { name: string; note: string | null; url: string | null }[];
+  /// `verified` is the admin's recorded vouch for the source (sources.service.ts) — the
+  /// reader-facing badge on the article's Sources block. Nothing else about a
+  /// source is exposed.
+  sources: { name: string; note: string | null; url: string | null; verified: boolean }[];
 }
 
 export function toPublicArticleView(
   article: Article & { category: Category; owner: User },
   revision: ArticleRevision,
   featuredImageUrl: string | null,
-  publicSources: { name: string; note: string | null; url: string | null }[],
+  publicSources: { name: string; note: string | null; url: string | null; verified: boolean }[],
 ): PublicArticleView {
   return {
     slug: article.slug,

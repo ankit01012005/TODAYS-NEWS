@@ -1,0 +1,12 @@
+{
+  "name": "ANVAY TV brand palette",
+  "colours": [
+    { "name": "Sindoor Red", "hex": "#C81E1E", "use": "Wordmark, section markers, live and breaking. Never more than 10% of a screen." },
+    { "name": "Indigo Black", "hex": "#12141C", "use": "Backgrounds and body text. Warmer and deeper than pure black." },
+    { "name": "Haldi Gold", "hex": "#E8A33D", "use": "Highlights on dark surfaces only. Fails contrast on light." },
+    { "name": "Bone", "hex": "#F4F2EE", "use": "Light backgrounds. Reads warmer than white on a phone screen." },
+    { "name": "Slate", "hex": "#5F6672", "use": "Secondary text, captions, metadata, dividers." },
+    { "name": "Fresh Green", "hex": "#1F8A5B", "use": "Live indicators and positive change only. Never decorative." }
+  ],
+  "type": { "primary": "Archivo", "mono": "IBM Plex Mono" }
+}

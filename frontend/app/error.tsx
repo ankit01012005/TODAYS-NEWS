@@ -1,18 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Wordmark } from "@/components/brand/Wordmark";
 
-/// PG-PUB-10. docs/08 E-06: a plain apology, the masthead, and a link
-/// home — no technical details, ever (SEC-06). This component is what
-/// renders when something breaks, quite possibly the backend API itself
-/// — so unlike every other page, it deliberately does NOT use
-/// PublicHeader (an async server component that calls the API for the
-/// section nav): if the API is what's down, that fetch would fail too and
-/// take the error page down with it. This renders unconditionally, with
-/// no data dependency at all.
-/// `error` is part of Next's required error-boundary prop signature but
-/// deliberately unused in the body — SEC-06: no technical detail is ever
-/// shown to the reader, so nothing from it is rendered.
+/// 2h — "Something broke on our side. Not you." A red left rule, two
+/// buttons, no technical detail ever (SEC-06). This renders when
+/// something breaks — quite possibly the API itself — so unlike every
+/// other page it does NOT use PublicHeader (which calls the API for the
+/// nav): it has no data dependency at all.
 export default function GlobalError({
   reset,
 }: {
@@ -20,36 +15,33 @@ export default function GlobalError({
   reset: () => void;
 }) {
   return (
-    <div className="public-site">
-      <header className="surface-band">
-        <div className="mx-auto flex max-w-(--width-page-max) flex-col items-center px-space-4 py-space-6">
-          <Link href="/" className="public-wordmark no-underline">
-            <span>Today News</span>
-            <span className="wordmark-signature" aria-hidden="true" />
-          </Link>
+    <div className="public-site min-h-screen bg-surface text-ink">
+      <header>
+        <div className="mx-auto max-w-(--width-page-max) px-space-4 py-space-4 md:px-space-6">
+          <Wordmark size="md" />
         </div>
-        <div className="editorial-rule" aria-hidden="true" />
+        <div className="masthead-rule" aria-hidden="true" />
       </header>
-      <main id="content" className="mx-auto max-w-(--width-measure) px-space-4 py-space-10 text-center md:px-space-5">
-        <p className="text-label text-brand">Temporarily unavailable</p>
-        <h1 className="mt-space-3 text-display-2 text-ink">Something went wrong on our side</h1>
-        <p className="mx-auto mt-space-4 max-w-[46ch] text-standfirst text-ink-secondary">
-          We&rsquo;re sorry — please try again in a moment.
-        </p>
-        <div className="mt-space-6 flex flex-col items-center justify-center gap-y-space-3 sm:flex-row sm:gap-x-space-4">
-          <button
-            type="button"
-            onClick={() => reset()}
-            className="inline-flex h-11 items-center rounded-pill bg-ink px-space-5 text-meta text-paper transition-[background-color,transform] duration-(--duration-fast) hover:bg-ink-secondary active:translate-y-px"
-          >
-            Try again
-          </button>
-          <Link
-            href="/"
-            className="inline-flex h-11 items-center rounded-pill border border-ink px-space-5 text-meta text-ink no-underline transition-[background-color,color] duration-(--duration-fast) hover:bg-ink hover:text-paper"
-          >
-            Back to the front page
-          </Link>
+      <main id="content" className="mx-auto max-w-(--width-page-max) px-space-4 py-space-9 md:px-space-6 md:py-space-10">
+        <div className="max-w-(--width-measure) border-l-[3px] border-brand pl-space-4 md:pl-space-5">
+          <p className="text-mono text-ink-muted">500 · temporarily unavailable</p>
+          <h1 className="mt-space-3 text-heading-1 text-ink">Something broke on our side.</h1>
+          <p className="mt-space-2 text-body text-ink-secondary">Not you. Try again in a moment.</p>
+          <div className="mt-space-5 flex flex-wrap gap-space-2">
+            <button
+              type="button"
+              onClick={() => reset()}
+              className="inline-flex h-10 items-center border border-ink bg-paper px-space-4 text-body-sm text-ink transition-colors hover:bg-ink hover:text-paper active:translate-y-px"
+            >
+              Try again
+            </button>
+            <Link
+              href="/"
+              className="inline-flex h-10 items-center border border-ink bg-paper px-space-4 text-body-sm text-ink no-underline transition-colors hover:bg-ink hover:text-paper"
+            >
+              Front page
+            </Link>
+          </div>
         </div>
       </main>
     </div>

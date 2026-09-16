@@ -19,7 +19,6 @@ import { mediaRouter } from "./media/media.router";
 import { auditRouter } from "./audit/audit.router";
 import { publicRouter } from "./public/public.router";
 import { socialPublicRouter, socialRouter } from "./social/social.router";
-import { UPLOADS_DIR } from "./media/storage";
 
 /// Builds the Express app without starting a listener — main.ts calls
 /// listen(), tests can exercise the app directly. Route registration order
@@ -61,15 +60,8 @@ export function createApp(): Express {
   app.use(authPublicRouter);
   app.use(publicRouter);
   app.use(socialPublicRouter);
-  // Uploaded media (local-disk placeholder, docs/23 §14.1) — served
-  // publicly, same as any CDN-fronted object-storage bucket would be.
-  app.use("/uploads", express.static(UPLOADS_DIR, { maxAge: "7d", immutable: true, index: false }));
-  // express.static calls next() rather than responding when a file isn't
-  // found, which would otherwise fall through into sessionAuth below and
-  // turn a missing image into a confusing 401 instead of a plain 404.
-  app.use("/uploads", (_req: Request, _res: Response, next: NextFunction) => {
-    next(new NotFoundError("No such file"));
-  });
+  // Uploaded media is not served from here: it lives in object storage
+  // (media/storage.ts) and browsers load it from the CDN URL directly.
 
   // --- Everything below requires a session ---
   app.use(sessionAuth);

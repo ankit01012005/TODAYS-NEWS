@@ -1,52 +1,49 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CmsShell } from "@/components/cms/CmsShell";
-import { Alert } from "@/components/cms/Alert";
+import { QueueRow } from "@/components/cms/QueueRow";
+import { ListFrame, PageHeader, CmsEmpty } from "@/components/cms/Panel";
+import { Reveal } from "@/components/motion/Reveal";
 import { requireRole } from "@/lib/api/session";
 import { getReviewQueue } from "@/lib/api/cms";
-import { formatRelative } from "@/lib/format-date";
+import { formatWaiting, hoursSince } from "@/lib/format-date";
 
-export const metadata: Metadata = { title: "Review queue — Today News", robots: { index: false } };
+export const metadata: Metadata = { title: "Review queue", robots: { index: false } };
 
-/// PG-ADM-02 — "the admin's main workspace." Oldest first (docs/10 A-03:
-/// "so the longest-waiting editor is served first"). An empty queue is a
-/// success state, not a blank page.
+/// 1k — "the admin's main workspace." Oldest first, so the longest-
+/// waiting editor is served first; waiting time is the loudest number on
+/// each row. An empty queue is a success state, not a blank page.
 export default async function ReviewQueuePage() {
   const user = await requireRole("ADMIN");
   const queue = await getReviewQueue();
+  const oldest = queue[0] ?? null;
+  const oldestSince = oldest ? (oldest.submittedAt ?? oldest.createdAt) : null;
+  const words = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
 
   return (
-    <CmsShell user={user}>
-      <h1 className="text-heading-2 text-ink">Review queue</h1>
-      <div className="mt-space-5">
+    <CmsShell user={user} reviewCount={queue.length} width="wide">
+      <Reveal>
+        <PageHeader
+          title={queue.length === 0 ? "The queue is clear." : `${words[queue.length] ?? queue.length} ${queue.length === 1 ? "story is" : "stories are"} waiting.`}
+          lede={
+            oldestSince
+              ? hoursSince(oldestSince) >= 24
+                ? `The oldest has been in the queue for ${formatWaiting(oldestSince)}. Start there.`
+                : `The oldest has been waiting ${formatWaiting(oldestSince)}.`
+              : "Nothing is waiting for a decision."
+          }
+        />
+      </Reveal>
+      <Reveal delay={0.05} className="mt-space-5">
         {queue.length === 0 ? (
-          <Alert variant="success" title="Nothing is waiting" />
+          <CmsEmpty title="Nothing to review" body="When an editor submits a story it appears here, oldest first." />
         ) : (
-          <div className="rounded-md border border-rule">
-            {queue.map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/staff/review/${entry.article.id}`}
-                className="flex items-center gap-x-space-4 border-b border-rule px-space-3 py-space-3 no-underline last:border-b-0 hover:bg-surface"
-              >
-                <span className="min-w-0 flex-1 truncate text-body text-ink">
-                  {entry.headline ?? <span className="text-ink-faint">Untitled</span>}
-                </span>
-                <span className="w-32 shrink-0 truncate text-body-sm text-ink-muted">{entry.article.ownerDisplayName}</span>
-                <span className="w-28 shrink-0 truncate text-body-sm text-ink-muted">{entry.article.category.name}</span>
-                {entry.previouslySentBack ? (
-                  <span className="shrink-0 rounded-sm bg-attention-wash px-space-2 py-0.5 text-meta text-ink-secondary">
-                    Sent back before
-                  </span>
-                ) : null}
-                <span className="w-32 shrink-0 text-right text-meta text-ink-muted">
-                  {entry.submittedAt ? formatRelative(entry.submittedAt) : "—"}
-                </span>
-              </Link>
+          <ListFrame>
+            {queue.map((entry, index) => (
+              <QueueRow key={entry.id} entry={entry} primary={index === 0} />
             ))}
-          </div>
+          </ListFrame>
         )}
-      </div>
+      </Reveal>
     </CmsShell>
   );
 }

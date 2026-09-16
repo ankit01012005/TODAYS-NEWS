@@ -4,6 +4,7 @@ import { AuthenticatedUser } from "../common/authenticated-user";
 import { BadRequestError, ConflictError, NotFoundError } from "../common/http-errors";
 import { assertOwnerOrAdmin } from "./authorization";
 import { writeAudit } from "../common/audit";
+import { invalidatePublicCache } from "../cache/revalidate";
 
 type TxClient = Prisma.TransactionClient;
 
@@ -90,6 +91,8 @@ async function copyIntoNewRevision(
         articleId: source.articleId,
         state: targetState,
         createdByUserId,
+        categoryId: source.categoryId,
+        bylineOverride: source.bylineOverride,
         headline: source.headline,
         summary: source.summary,
         body: (source.body ?? undefined) as Prisma.InputJsonValue | undefined,
@@ -276,10 +279,18 @@ export async function approveAndPublish(
   articleId: string,
   version: number,
 ): Promise<{ article: Article; revision: ArticleRevision }> {
-  return prisma.$transaction(async (tx) => {
+  const published = await prisma.$transaction(async (tx) => {
     const article = await loadArticleOr404(tx, articleId);
     const revision = await loadOpenRevisionOrThrow(tx, articleId);
     assertRevisionState(revision, ["IN_REVIEW"]);
+
+    // The section this revision proposes becomes the story's public
+    // address on publish — it must still exist (a category can be
+    // deactivated while a draft names it; P2-21 only guards LIVE stories).
+    const category = await tx.category.findUnique({ where: { id: revision.categoryId } });
+    if (!category || category.deletedAt) {
+      throw new ConflictError("This story's section has been deactivated — move it to another section first");
+    }
 
     await tx.reviewDecision.create({
       data: { articleRevisionId: revision.id, decision: "APPROVED", decidedByUserId: user.id },
@@ -301,6 +312,8 @@ export async function approveAndPublish(
       publishedByUserId: user.id,
     });
 
+    // docs/27 A1 — the ONLY place the public section and byline change:
+    // copied from the revision the admin just approved.
     const updatedArticle = await tx.article.update({
       where: { id: articleId },
       data: {
@@ -308,6 +321,8 @@ export async function approveAndPublish(
         currentPublishedRevisionId: revision.id,
         firstPublishedAt: article.firstPublishedAt ?? now,
         publishedAt: now,
+        categoryId: revision.categoryId,
+        bylineOverride: revision.bylineOverride,
       },
     });
 
@@ -329,6 +344,11 @@ export async function approveAndPublish(
     const updatedRevision = await tx.articleRevision.findUniqueOrThrow({ where: { id: revision.id } });
     return { article: updatedArticle, revision: updatedRevision };
   });
+
+  // After commit, never inside it: a slow or failed purge must not roll
+  // back a publish that already happened (docs/27 B3).
+  invalidatePublicCache("publish", articleId);
+  return published;
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +360,7 @@ export async function unpublish(
   version: number,
   reason: string,
 ): Promise<Article> {
-  return prisma.$transaction(async (tx) => {
+  const withdrawn = await prisma.$transaction(async (tx) => {
     const article = await loadArticleOr404(tx, articleId);
     if (!article.currentPublishedRevisionId) {
       throw new ConflictError("This article isn't currently published");
@@ -364,6 +384,9 @@ export async function unpublish(
     });
     return updatedArticle;
   });
+
+  invalidatePublicCache("unpublish", articleId);
+  return withdrawn;
 }
 
 // ---------------------------------------------------------------------------

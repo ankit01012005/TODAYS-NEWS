@@ -375,5 +375,3 @@ Stated so the boundary is auditable:
 |---|---|
 | `19-design-system.md` | Typography, colour, spacing, components |
 | `20-visual-direction.md` | The explored directions and the recommendation |
-| `21-client-demo-script.md` | How this is presented |
-| `22-design-audit.md` | Whether the design actually matches the requirements |

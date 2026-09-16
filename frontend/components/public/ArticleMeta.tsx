@@ -1,27 +1,42 @@
 import Link from "next/link";
-import { formatPublicDateTime } from "@/lib/format-date";
+import { formatBylineTime } from "@/lib/format-date";
+import { Avatar } from "./Avatar";
 
-/// docs/19 §3.3 — one line at md+, two lines at xs, `meta` style. Author
-/// name is plain text, never a link (author pages are [FUTURE] —
-/// PG-PUB-F1, OQ-23; linking it would promise a page that doesn't exist).
-/// Section IS a link. Used by the CMS preview so it reads exactly as the
-/// public article header does.
+/// The byline rule as the CMS preview renders it (2k): the same disc,
+/// name, section link and time as the public article header, with the
+/// time labelled "would publish as" when the story isn't live yet.
 export function ArticleMeta({
   byline,
   category,
   publishedAt,
+  hypothetical = false,
+  readingMinutes,
 }: {
   byline: string;
   category: { name: string; slug: string };
   publishedAt: string;
+  hypothetical?: boolean;
+  readingMinutes?: number;
 }) {
   return (
-    <p className="text-meta text-ink-muted">
-      <span className="text-ink">By {byline}</span> ·{" "}
-      <Link href={`/${category.slug}`} className="link-underline text-ink-muted">
-        {category.name}
-      </Link>{" "}
-      · <time dateTime={publishedAt}>{formatPublicDateTime(publishedAt)}</time>
-    </p>
+    <div className="flex flex-wrap items-center gap-x-space-3 gap-y-space-2 border-y border-rule py-space-3 text-caption text-ink-muted">
+      <Avatar name={byline || "A"} />
+      <span>
+        <span className="font-medium text-ink">By {byline}</span>
+        <span aria-hidden="true"> · </span>
+        <Link href={`/${category.slug}`} className="link-underline text-ink-muted">
+          {category.name}
+        </Link>
+        <span aria-hidden="true"> · </span>
+        {hypothetical ? <span>would publish as </span> : null}
+        <time dateTime={publishedAt}>{formatBylineTime(publishedAt)}</time>
+        {typeof readingMinutes === "number" ? (
+          <>
+            <span aria-hidden="true"> · </span>
+            <span>{readingMinutes} min</span>
+          </>
+        ) : null}
+      </span>
+    </div>
   );
 }

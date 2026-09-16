@@ -1,13 +1,13 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
-/// Renders the six V1 block types (docs/26 §3.2, unchanged by docs/19
-/// §3.8): paragraph, heading, image, quote, list, divider. Every block is
-/// a typed React component — this file never uses
-/// dangerouslySetInnerHTML anywhere (DM-08). Malformed/unknown input from
-/// the API is skipped rather than thrown on: the backend already validates
-/// shape on write (docs/26 §3.4); this is a renderer, not a second
-/// validator, but it must not crash the page on a shape it doesn't expect.
+/// Renders the six V1 block types — paragraph, heading, image, quote,
+/// list, divider — exactly what body.util.ts validates (1d). Every block
+/// is a typed React component; this file never uses
+/// dangerouslySetInnerHTML anywhere. Malformed/unknown input from the API
+/// is skipped rather than thrown on: the backend already validates shape
+/// on write; this is a renderer, not a second validator, but it must not
+/// crash the page on a shape it doesn't expect.
 
 interface InlineSpan {
   text: string;
@@ -101,7 +101,7 @@ function Inline({ spans }: { spans: InlineSpan[] }) {
       {spans.map((span, i) => {
         let node: ReactNode = span.text;
         for (const mark of span.marks ?? []) {
-          if (mark === "strong") node = <strong>{node}</strong>;
+          if (mark === "strong") node = <strong className="font-semibold">{node}</strong>;
           else if (mark === "em") node = <em>{node}</em>;
           else if (typeof mark === "object" && mark.type === "link") {
             node = (
@@ -120,12 +120,12 @@ function Inline({ spans }: { spans: InlineSpan[] }) {
   );
 }
 
-export function ArticleBody({ body }: { body: unknown }) {
+export function ArticleBody({ body, className = "" }: { body: unknown; className?: string }) {
   if (!Array.isArray(body)) return null;
   const blocks = body.map(asBlock).filter((b): b is Block => b !== null);
 
   return (
-    <div className="public-article-body drop-cap text-body-lg text-ink">
+    <div className={`public-article-body text-body-lg text-ink ${className}`}>
       {blocks.map((block, i) => (
         <BlockView key={i} block={block} />
       ))}
@@ -142,7 +142,7 @@ function BlockView({ block }: { block: Block }) {
         </p>
       );
     case "heading": {
-      const className = "mt-space-6 mb-space-3 text-ink";
+      const className = "mt-space-7 mb-space-3 text-ink";
       return block.level === 2 ? (
         <h2 className={`${className} text-heading-2`}>
           <Inline spans={block.content} />
@@ -155,49 +155,53 @@ function BlockView({ block }: { block: Block }) {
     }
     case "image":
       return (
-        <figure className="mt-space-7 md:-mx-space-8">
-          <div className="relative aspect-3/2 overflow-hidden bg-surface-sunken">
+        <figure className="mt-space-7">
+          <div className="relative aspect-3/2 overflow-hidden bg-surface-deep">
             <Image
               src={block.url}
               alt={block.alt}
               fill
-              sizes="(min-width: 900px) 808px, 100vw"
+              sizes="(min-width: 900px) 660px, 100vw"
               className="object-cover"
             />
           </div>
           {block.caption || block.credit ? (
             <figcaption className="mt-space-2 text-caption text-ink-muted">
               {block.caption}
-              {block.caption && block.credit ? " — " : ""}
-              {block.credit}
+              {block.caption && block.credit ? " · " : ""}
+              {block.credit ? <span className="text-ink-faint">{block.credit}</span> : null}
             </figcaption>
           ) : null}
         </figure>
       );
     case "quote":
       return (
-        <blockquote className="my-space-7 border-l-2 border-gold pl-space-5 md:-ml-space-6 md:pl-space-6">
-          <p className="text-heading-2 font-normal italic text-ink">
+        <blockquote className="my-space-7 border-l-[3px] border-brand py-space-2 pl-space-5">
+          <p className="text-heading-3 font-medium text-ink">
             <Inline spans={block.content} />
           </p>
-          {block.attribution ? (
-            <footer className="mt-space-3 text-label text-gold-deep">{block.attribution}</footer>
-          ) : null}
+          {block.attribution ? <footer className="mt-space-3 text-caption text-ink-muted">— {block.attribution}</footer> : null}
         </blockquote>
       );
     case "list": {
       const items = block.items.map((spans, i) => (
-        <li key={i}>
+        <li key={i} className="pl-space-1">
           <Inline spans={spans} />
         </li>
       ));
       return block.style === "ordered" ? (
-        <ol className="mt-space-5 list-decimal space-y-space-2 pl-space-6">{items}</ol>
+        <ol className="mt-space-5 list-decimal space-y-space-2 pl-space-6 marker:font-semibold marker:text-brand">{items}</ol>
       ) : (
-        <ul className="mt-space-5 list-disc space-y-space-2 pl-space-6">{items}</ul>
+        <ul className="mt-space-5 list-[square] space-y-space-2 pl-space-6 marker:text-ink">{items}</ul>
       );
     }
     case "divider":
-      return <hr className="my-space-6 border-rule" />;
+      return (
+        <div className="my-space-7 flex items-center gap-x-space-3" aria-hidden="true">
+          <span className="h-px flex-1 bg-rule" />
+          <span className="h-[6px] w-[6px] bg-brand" />
+          <span className="h-px flex-1 bg-rule" />
+        </div>
+      );
   }
 }

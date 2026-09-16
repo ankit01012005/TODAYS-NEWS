@@ -45,3 +45,9 @@ mediaRouter.delete(
     res.status(204).end();
   },
 );
+
+/// Drops rows whose object no longer exists at the provider (deleted from
+/// the Cloudinary dashboard). Admin only - it changes what stories show.
+mediaRouter.post("/reconcile", requireCapability("media:manage"), async (req: Request, res: Response) => {
+  res.status(200).json(await mediaService.reconcileWithStorage(CurrentUser(req)));
+});
