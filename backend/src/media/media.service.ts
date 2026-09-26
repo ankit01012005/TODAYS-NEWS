@@ -126,8 +126,21 @@ export interface ReconcileResult {
 /// database still lists them, so the picker offers them and pages render
 /// a broken image. Compare and drop the rows whose object is gone.
 export async function reconcileWithStorage(user: AuthenticatedUser): Promise<ReconcileResult> {
-  const [keysAtProvider, rows] = await Promise.all([storage.listKeys(), listMedia()]);
+  const rows = await listMedia();
+  const keysAtProvider = await storage.existingKeys(rows.map((row) => row.storageKey));
   const missing = rows.filter((row) => !keysAtProvider.has(row.storageKey));
+
+  // Nobody empties a whole library from the dashboard by hand; the provider
+  // "losing" every image means this API is asking the wrong account. Removing
+  // the rows would also null every story's featured image (the FK is ON
+  // DELETE SET NULL), so refuse and change nothing.
+  if (rows.length > 1 && missing.length === rows.length) {
+    logger.warn("media.reconcile_refused", { checked: rows.length });
+    throw new ConflictError(
+      `Cloudinary reports none of the ${rows.length} images in the library, which points to a configuration problem ` +
+        "(CLOUDINARY_URL for a different account?) rather than deleted images. Nothing was removed.",
+    );
+  }
 
   const affected = new Map<string, MediaUse>();
   for (const row of missing) {
@@ -136,6 +149,12 @@ export async function reconcileWithStorage(user: AuthenticatedUser): Promise<Rec
 
   if (missing.length > 0) {
     await prisma.$transaction(async (tx) => {
+      // Captured before the delete nulls them, so a mistaken sync can be
+      // undone from the audit log alone.
+      const featured = await tx.articleRevision.findMany({
+        where: { featuredImageId: { in: missing.map((m) => m.id) } },
+        select: { id: true, featuredImageId: true },
+      });
       await tx.mediaAsset.deleteMany({ where: { id: { in: missing.map((m) => m.id) } } });
       for (const row of missing) {
         await writeAudit(tx, {
@@ -143,7 +162,17 @@ export async function reconcileWithStorage(user: AuthenticatedUser): Promise<Rec
           entityType: "MediaAsset",
           entityId: row.id,
           action: "RECONCILE_REMOVED",
-          metadata: { storageKey: row.storageKey, originalFilename: row.originalFilename },
+          metadata: {
+            storageKey: row.storageKey,
+            originalFilename: row.originalFilename,
+            url: row.url,
+            mimeType: row.mimeType,
+            sizeBytes: row.sizeBytes,
+            width: row.width,
+            height: row.height,
+            uploadedByUserId: row.uploadedByUserId,
+            featuredInRevisionIds: featured.filter((f) => f.featuredImageId === row.id).map((f) => f.id),
+          },
         });
       }
     });

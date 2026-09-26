@@ -21,11 +21,17 @@ export interface StoredObject {
 export interface StorageAdapter {
   upload(key: string, buffer: Buffer): Promise<StoredObject>;
   delete(key: string): Promise<void>;
-  /// Every key currently held under this deployment's folder — what
-  /// reconcile() in media.service.ts compares the database against after
-  /// someone deletes straight from the provider's dashboard.
-  listKeys(): Promise<Set<string>>;
+  /// Which of these exact keys the provider still holds — what reconcile()
+  /// in media.service.ts compares the database against after someone
+  /// deletes straight from the provider's dashboard. Asked key by key, not
+  /// by listing a folder: a row's key carries the folder it was uploaded
+  /// under, and CLOUDINARY_FOLDER can change after the fact (the ANVAY TV
+  /// rename did), which made every older image look deleted.
+  existingKeys(keys: string[]): Promise<Set<string>>;
 }
+
+/// Cloudinary's Admin API cap on public_ids per resources_by_ids call.
+const LOOKUP_BATCH = 100;
 
 /// The longest edge any stored master needs. Nothing on the site renders
 /// wider than ~1,300 CSS px (2× for retina ≈ 2,600), so a 6,000 px camera
@@ -102,21 +108,20 @@ class CloudinaryStorageAdapter implements StorageAdapter {
     }
   }
 
-  async listKeys(): Promise<Set<string>> {
-    const keys = new Set<string>();
-    let cursor: string | undefined;
-    do {
-      const page = (await cloudinary.api.resources({
+  async existingKeys(keys: string[]): Promise<Set<string>> {
+    const found = new Set<string>();
+    for (let i = 0; i < keys.length; i += LOOKUP_BATCH) {
+      const batch = keys.slice(i, i + LOOKUP_BATCH);
+      // Only the objects that exist come back; an unknown id is simply
+      // absent, and any API failure throws before anything is compared.
+      const page = (await cloudinary.api.resources_by_ids(batch, {
         type: "upload",
         resource_type: "image",
-        prefix: `${config.CLOUDINARY_FOLDER}/`,
-        max_results: 500,
-        next_cursor: cursor,
-      })) as { resources: Array<{ public_id: string }>; next_cursor?: string };
-      for (const resource of page.resources) keys.add(resource.public_id);
-      cursor = page.next_cursor;
-    } while (cursor);
-    return keys;
+        max_results: LOOKUP_BATCH,
+      })) as { resources: Array<{ public_id: string }> };
+      for (const resource of page.resources) found.add(resource.public_id);
+    }
+    return found;
   }
 }
 
