@@ -26,7 +26,18 @@ const nextConfig: NextConfig = {
   // not carry the build toolchain or the full dependency tree. `public`
   // and `.next/static` are copied in alongside it by the Dockerfile —
   // standalone deliberately leaves those out, expecting a CDN.
-  output: "standalone",
+  //
+  // Not on Vercel, which builds its own serverless output and does its own
+  // file tracing. Vercel's builder strips `output: "standalone"` from the
+  // config before the build — but a Turbopack production build writes
+  // .next/next-server.js.nft.json only *when that option is set*, and
+  // Vercel's own onBuildComplete step then fails reading a file nothing
+  // wrote: ENOENT ... '/vercel/path0/frontend/.next/next-server.js.nft.json'
+  // (next.js#96646, Next 16.3.x). Gating it is more than the workaround:
+  // standalone is a self-hosting mode, and Vercel never wanted it. Docker
+  // and CI set no VERCEL variable, so both still get the standalone build
+  // the Dockerfile copies out of .next/standalone.
+  output: process.env.VERCEL ? undefined : "standalone",
   // Turbopack infers the workspace root by walking up for a lockfile, and
   // a stray package-lock.json in a parent directory (Desktop, in one real
   // case) made it pick a root outside the repository — which it warns
