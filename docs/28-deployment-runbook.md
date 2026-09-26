@@ -126,9 +126,15 @@ Nothing below is optional for a public deployment.
 - [ ] **Connect as a non-superuser.** A superuser can disable the triggers
       that hold the editorial invariants — the append-only audit log among
       them. `db:verify --stage=pre` **fails** on this in production.
-- [ ] **TLS required** on the connection (`sslmode=require` or the
-      provider's equivalent). `db:verify` reports whether the live
-      connection is actually encrypted, not whether you asked for it.
+- [ ] **TLS required** on the connection — write `sslmode=require` (or a
+      `verify-*` mode) into the URL itself. `db:verify` **fails** a URL
+      that does not, and fails `sslmode=prefer`, which is allowed to
+      fall back to plaintext. Note that on a provider which terminates
+      TLS at its own edge proxy — Neon does — the server's own
+      `pg_stat_ssl` reports no TLS however the client connected, because
+      it describes only the proxy's private hop inside the provider's
+      network. The check recognises that case and falls back to what the
+      client demanded, which is why the mode has to be in the URL.
 - [ ] **Separate databases** for development, staging and production.
 - [ ] **Automated backups with point-in-time recovery**, and a **restore
       you have actually performed** — restore into a scratch database and

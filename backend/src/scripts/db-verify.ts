@@ -87,6 +87,18 @@ function firstLine(error: unknown): string {
   return lines[0] ?? message.split("\n")[0] ?? message;
 }
 
+/// sslmode as the connection string asks for it, or null when it says
+/// nothing. Never throws: a malformed URL is the connectivity check's
+/// problem to report, not a reason this one cannot run.
+function requestedSslMode(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return new URL(raw).searchParams.get("sslmode");
+  } catch {
+    return null;
+  }
+}
+
 async function scalar<T>(sql: string): Promise<T> {
   const rows = await prisma.$queryRawUnsafe<Record<string, T>[]>(sql);
   return Object.values(rows[0] ?? {})[0] as T;
@@ -159,12 +171,39 @@ async function preChecks(): Promise<void> {
   await check("connection is encrypted", async () => {
     // Credentials and article drafts cross the public internet to a
     // managed provider; an unencrypted link would expose both.
-    const ssl = await rows<{ ssl: boolean }>(
-      "SELECT coalesce(bool_or(ssl), false) AS ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()",
-    ).catch(() => [{ ssl: false }]);
-    const encrypted = ssl[0]?.ssl === true;
-    if (encrypted) return ["PASS", "TLS in use"];
-    return [nodeEnv === "production" ? "FAIL" : "WARN", "connection is NOT encrypted"];
+    //
+    // pg_stat_ssl answers only for the hop PostgreSQL itself terminates —
+    // which on a managed provider is not the hop that crosses the
+    // internet. Neon terminates TLS at its own edge proxy and reaches the
+    // server over its private network, so ssl there is false no matter how
+    // strictly the client demanded TLS. inet_client_addr() gives it away:
+    // it reports the proxy's private address, not this machine's.
+    //
+    // So pg_stat_ssl is believed when PostgreSQL is genuinely the endpoint,
+    // and otherwise the question becomes what the client negotiated.
+    // sslmode=require and the verify-* modes never fall back to plaintext:
+    // if a connection is up under one of them, that link is encrypted, and
+    // a provider that terminated it early can only have done so inside its
+    // own network.
+    const link = await rows<{ ssl: boolean; client: string }>(
+      `SELECT coalesce(bool_or(s.ssl), false) AS ssl,
+              coalesce(host(inet_client_addr()), 'a local socket') AS client
+         FROM pg_stat_ssl s
+        WHERE s.pid = pg_backend_pid()`,
+    ).catch(() => []);
+    if (link[0]?.ssl === true) return ["PASS", "TLS in use"];
+
+    const sslmode = requestedSslMode(process.env.DATABASE_URL);
+    if (sslmode === "require" || sslmode === "verify-ca" || sslmode === "verify-full") {
+      const seen = link[0]?.client ?? "an address it did not report";
+      return ["PASS", `TLS required by the client (sslmode=${sslmode}); the server terminates none itself — it sees ${seen}`];
+    }
+    return [
+      nodeEnv === "production" ? "FAIL" : "WARN",
+      sslmode === null
+        ? "connection is NOT encrypted, and the URL does not ask for TLS"
+        : `connection is NOT encrypted (sslmode=${sslmode} permits plaintext)`,
+    ];
   });
 
   await check("runtime user is not a superuser", async () => {
