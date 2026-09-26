@@ -32,6 +32,11 @@ export interface SocialHandle {
   reachLabel: string;
 }
 
+/// Only handles that actually resolve belong here — Instagram, X and
+/// YouTube are live accounts. A WhatsApp channel used to sit alongside
+/// them pointing at /channel/anvaytv, which cannot exist: a channel invite
+/// is /channel/<opaque id>, never a vanity name, so it was a link to
+/// nothing. Add it back with the real invite link when there is one.
 export const SOCIAL_HANDLES: SocialHandle[] = [
   {
     key: "instagram",
@@ -57,26 +62,25 @@ export const SOCIAL_HANDLES: SocialHandle[] = [
     reach: null,
     reachLabel: "subscribers",
   },
-  {
-    key: "whatsapp",
-    label: "WhatsApp channel",
-    handle: "ANVAY TV",
-    url: "https://whatsapp.com/channel/anvaytv",
-    reach: null,
-    reachLabel: "channel members",
-  },
 ];
 
 /// Contact addresses — the Contact page's four ways in, and the PR desk.
 /// The public site is read-only: every form on it composes an email
 /// rather than posting anywhere (design handoff "Gaps" 3).
+/// Every route currently lands in one newsroom inbox. They stay separate
+/// keys so any one of them can move to its own address later without a
+/// page changing — and so the mailto subject lines keep telling the desk
+/// apart. Nothing here is a .example address any more: a contact page that
+/// bounces is worse than one that is honest about being small.
+const NEWSROOM_INBOX = "adsanvay@gmail.com";
+
 export const CONTACTS = {
-  tips: "tips@anvaytv.example",
-  corrections: "corrections@anvaytv.example",
-  careers: "careers@anvaytv.example",
-  press: "press@anvaytv.example",
-  privacy: "privacy@anvaytv.example",
-  general: "hello@anvaytv.example",
+  tips: NEWSROOM_INBOX,
+  corrections: NEWSROOM_INBOX,
+  careers: NEWSROOM_INBOX,
+  press: NEWSROOM_INBOX,
+  privacy: NEWSROOM_INBOX,
+  general: NEWSROOM_INBOX,
 };
 
 /// The ANVAY TV hub (/tv). Video lives on the handles, not in stories —

@@ -6,7 +6,7 @@ import { siteUrl as resolveSiteUrl } from "@/lib/env";
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = resolveSiteUrl();
   return {
-    rules: { userAgent: "*", allow: "/", disallow: ["/staff", "/api", "/search"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/staff", "/api"] },
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }

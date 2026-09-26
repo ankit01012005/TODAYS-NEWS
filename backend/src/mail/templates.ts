@@ -6,7 +6,7 @@ import { MailMessage } from "./mailer";
 /// with one button. Every interpolated value is escaped for the HTML
 /// variant — display names are staff-entered, not trusted markup.
 
-const SITE_NAME = "Today News";
+const SITE_NAME = "ANVAY TV";
 
 function escapeHtml(value: string): string {
   return value

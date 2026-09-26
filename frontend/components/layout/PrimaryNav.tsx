@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { PublicCategoryRef } from "@/lib/api/public-types";
-import { TV_CONFIG } from "@/lib/site";
 
 /// The section nav beneath the masthead rule, sticky: Home, every
-/// section from GET /public/categories, and ANVAY TV on the right. The
+/// section from GET /public/categories, and PR & Distribution on the
+/// right. ANVAY TV is deliberately NOT here — the masthead's LIVE pill is
+/// the one route to /tv, where this nav used to name the same page a
+/// second time, beneath a wordmark already saying it. The
 /// 2px Sindoor underline grows from the left on hover and sits fully
 /// under the current section. Horizontally scrollable at phone width
 /// with faded edges (1g), full width at md+. A compact wordmark fades in
@@ -19,7 +21,6 @@ export function PrimaryNav({
   activeHome?: boolean;
   activePath?: string;
 }) {
-  const isLive = TV_CONFIG.liveVideoId !== null;
   const linkClass = (active: boolean) =>
     `nav-link block whitespace-nowrap py-space-3 text-body-sm no-underline transition-colors duration-(--duration-fast) ${
       active ? "font-medium text-brand" : "text-ink hover:text-brand"
@@ -59,17 +60,7 @@ export function PrimaryNav({
               </li>
             );
           })}
-          <li className="shrink-0 md:ml-auto">
-            <Link
-              href="/tv"
-              aria-current={activePath === "/tv" ? "page" : undefined}
-              className={`${linkClass(activePath === "/tv")} flex items-center gap-x-space-2`}
-            >
-              {isLive ? <span className="live-dot live-dot-sm live-dot-red" aria-hidden="true" /> : null}
-              ANVAY TV
-            </Link>
-          </li>
-          <li className="hidden shrink-0 md:block">
+          <li className="hidden shrink-0 md:ml-auto md:block">
             <Link
               href="/pr"
               aria-current={activePath === "/pr" ? "page" : undefined}

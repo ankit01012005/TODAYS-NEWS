@@ -6,7 +6,7 @@ import { AuthenticatedUser } from "./auth-types";
 /// Must match the backend's default (backend/src/config/env.validation.ts)
 /// — there is no shared package between the two apps to import this from,
 /// same hand-maintained-mirror convention as the API response types.
-export const SESSION_COOKIE_NAME = "today_news_session";
+export const SESSION_COOKIE_NAME = "anvay_session";
 
 /// Server Components call the backend directly, forwarding the browser's
 /// session cookie (docs/23 §4.4 "CMS reads" row: server components call

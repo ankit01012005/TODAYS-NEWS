@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { formatMastheadDate } from "@/lib/format-date";
 import { SITE_CITY, TV_CONFIG } from "@/lib/site";
@@ -7,9 +6,15 @@ import { PublicCategoryRef } from "@/lib/api/public-types";
 import { MobileMenu } from "./MobileMenu";
 
 /// 1a "Pulse Front" masthead: the wordmark with its pulse line on the
-/// left, the edition line and two pills (LIVE → /tv, Search) on the
-/// right, and a 3px Sindoor rule beneath. On a phone (1g) the right side
+/// left, the edition line and a single LIVE pill (→ /tv) on the right,
+/// and a 3px Sindoor rule beneath. On a phone (1g) the right side
 /// collapses into the hamburger that opens the full menu.
+///
+/// One pill, not two. It used to read "ANVAY TV" beside the section nav's
+/// own "ANVAY TV" link — the same destination named the same way twice,
+/// within 40px of a wordmark already saying it a third time. The pill is
+/// now the channel's state rather than its name: LIVE always, and when
+/// something genuinely is, the dot and border escalate to Sindoor.
 ///
 /// No public-facing element links into the back-office from here; the
 /// one staff link lives in the footer, marked nofollow.
@@ -34,35 +39,30 @@ export function Masthead({ categories }: { categories: PublicCategoryRef[] }) {
             >
               {formatMastheadDate()} · {SITE_CITY}
             </time>
-            <div className="flex items-center gap-x-space-2">
-              <Link
-                href="/tv"
-                className={`inline-flex h-7 items-center gap-x-space-2 rounded-pill border px-space-3 text-label no-underline transition-colors duration-(--duration-fast) ${
-                  isLive
-                    ? "border-brand text-brand hover:bg-brand-wash"
-                    : "border-rule-strong text-ink hover:border-ink"
-                }`}
-              >
-                <span className={`live-dot live-dot-sm ${isLive ? "live-dot-red" : ""}`} aria-hidden="true" />
-                {isLive ? "Live" : "ANVAY TV"}
-              </Link>
-              <Link
-                href="/search"
-                className="inline-flex h-7 items-center gap-x-space-1 rounded-pill border border-rule-strong px-space-3 text-label text-ink no-underline transition-colors duration-(--duration-fast) hover:border-ink"
-              >
-                <Search size={12} strokeWidth={2.4} aria-hidden="true" />
-                Search
-              </Link>
-            </div>
+            <Link
+              href="/tv"
+              aria-label={isLive ? "Live now on ANVAY TV" : "ANVAY TV — bulletins and live channel"}
+              className={`pill-live inline-flex h-7 items-center gap-x-space-2 rounded-pill border px-space-3 text-label no-underline ${
+                isLive
+                  ? "border-brand bg-brand-wash text-brand"
+                  : "border-rule-strong text-ink hover:border-brand hover:text-brand"
+              }`}
+            >
+              <span className={`live-dot live-dot-sm ${isLive ? "live-dot-red" : ""}`} aria-hidden="true" />
+              LIVE
+            </Link>
           </div>
 
           <div className="flex items-center gap-x-space-2 sm:hidden">
             <Link
-              href="/search"
-              aria-label="Search"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-pill border border-rule-strong text-ink no-underline"
+              href="/tv"
+              aria-label={isLive ? "Live now on ANVAY TV" : "ANVAY TV"}
+              className={`pill-live inline-flex h-9 items-center gap-x-space-2 rounded-pill border px-space-3 text-label no-underline ${
+                isLive ? "border-brand bg-brand-wash text-brand" : "border-rule-strong text-ink"
+              }`}
             >
-              <Search size={15} strokeWidth={2.2} aria-hidden="true" />
+              <span className={`live-dot live-dot-sm ${isLive ? "live-dot-red" : ""}`} aria-hidden="true" />
+              LIVE
             </Link>
             <MobileMenu categories={categories} isLive={isLive} />
           </div>

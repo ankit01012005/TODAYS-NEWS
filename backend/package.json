@@ -1,8 +1,8 @@
 {
-  "name": "today-news-backend",
+  "name": "anvay-tv-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Today_news API \u2014 Express backend on PostgreSQL/Prisma",
+  "description": "ANVAY TV API \u2014 Express backend on PostgreSQL/Prisma",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24"

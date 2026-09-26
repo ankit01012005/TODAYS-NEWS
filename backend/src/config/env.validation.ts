@@ -32,7 +32,7 @@ export interface AppEnv {
   /// dashboard shows it: cloudinary://API_KEY:API_SECRET@CLOUD_NAME.
   CLOUDINARY_URL: string;
   /// Folder every upload lands in, so one Cloudinary account can host
-  /// several environments (today-news/production, today-news/staging, …).
+  /// several environments (anvay-tv/production, anvay-tv/staging, …).
   CLOUDINARY_FOLDER: string;
 }
 
@@ -103,7 +103,7 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     if (!/^smtps?:\/\//.test(smtpUrl)) throw new Error("SMTP_URL must start with smtp:// or smtps://");
     if (!mailFrom) {
       throw new Error(
-        'MAIL_FROM is required to send mail (SMTP_URL is set) — e.g. MAIL_FROM="Today News <newsroom@your-verified-domain>"',
+        'MAIL_FROM is required to send mail (SMTP_URL is set) — e.g. MAIL_FROM="ANVAY TV <newsroom@your-verified-domain>"',
       );
     }
   }
@@ -131,7 +131,7 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
   if (!/^cloudinary:\/\/[^:@\s]+:[^:@\s]+@[^\s/]+$/.test(cloudinaryUrl)) {
     throw new Error("CLOUDINARY_URL must look like cloudinary://API_KEY:API_SECRET@CLOUD_NAME");
   }
-  const cloudinaryFolder = String(config.CLOUDINARY_FOLDER ?? "today-news").replace(/^\/+|\/+$/g, "");
+  const cloudinaryFolder = String(config.CLOUDINARY_FOLDER ?? "anvay-tv").replace(/^\/+|\/+$/g, "");
   if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(cloudinaryFolder)) {
     throw new Error(`Invalid CLOUDINARY_FOLDER: ${String(config.CLOUDINARY_FOLDER)}`);
   }
@@ -140,7 +140,7 @@ export function validateEnv(config: Record<string, unknown>): AppEnv {
     DATABASE_URL: config.DATABASE_URL as string,
     NODE_ENV: nodeEnv as AppEnv["NODE_ENV"],
     PORT: port,
-    SESSION_COOKIE_NAME: (config.SESSION_COOKIE_NAME as string) ?? "today_news_session",
+    SESSION_COOKIE_NAME: (config.SESSION_COOKIE_NAME as string) ?? "anvay_session",
     SESSION_TTL_HOURS: sessionTtlHours,
     CORS_ORIGINS: corsOrigins,
     TRUST_PROXY: trustProxy,
