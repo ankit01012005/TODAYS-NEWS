@@ -40,7 +40,10 @@ export default async function HomePage() {
   }
 
   const secondaries = articles.slice(1, 4);
-  const justIn = articles.length > 7 ? articles.slice(4, 10) : articles.slice(0, 6);
+  // Always the newest six, even though the first four also lead the page:
+  // skipping them meant a story published a minute ago never appeared in
+  // the one rail whose job is to say what just landed.
+  const justIn = articles.slice(0, 6);
 
   const sections = (
     await Promise.all(

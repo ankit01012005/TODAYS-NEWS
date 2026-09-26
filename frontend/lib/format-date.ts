@@ -78,7 +78,16 @@ export function formatBylineTime(iso: string): string {
   return `${formatPublicDateShort(iso)}, ${formatPublicTime(iso)} IST`;
 }
 
-/// "09:40" — 24-hour, for the Just In rail's timestamps.
+/// The Just In rail's timestamp: "09:40" for a story published today in
+/// the site's zone, "25 Sept, 09:40" otherwise — a bare time on an older
+/// story reads as today's.
+export function formatJustInTime(iso: string, now: Date = new Date()): string {
+  return formatPublicDateShort(iso) === formatPublicDateShort(now.toISOString())
+    ? formatPublicTime(iso)
+    : `${formatPublicDateShort(iso)}, ${formatPublicTime(iso)}`;
+}
+
+/// "09:40" — 24-hour.
 export function formatPublicTime(iso: string): string {
   return new Intl.DateTimeFormat(SITE_LOCALE, {
     hour: "2-digit",
