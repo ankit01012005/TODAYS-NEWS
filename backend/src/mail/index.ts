@@ -38,6 +38,28 @@ export async function verifyMailer(): Promise<void> {
     await mailer.verify();
     logger.info("mail.smtp.verified");
   } catch (error) {
-    logger.error("mail.smtp.unreachable", { err: error });
+    logger.error("mail.smtp.unreachable", { err: error, hint: smtpFailureHint(error) });
   }
+}
+
+/// Both ways this fails in practice are configuration, and neither says so.
+/// The provider's own error is a timeout or a line of OpenSSL, so the
+/// diagnosis is written down here rather than rediscovered under pressure.
+function smtpFailureHint(error: unknown): string | undefined {
+  const err = error as { code?: unknown; message?: unknown };
+  const code = typeof err?.code === "string" ? err.code : "";
+  const message = typeof err?.message === "string" ? err.message : "";
+
+  // TLS offered to a port that opens in the clear: the plaintext greeting
+  // arrives where a TLS record was expected. smtps:// speaks TLS from the
+  // first byte; 587 and 2587 want smtp:// and STARTTLS instead.
+  if (/wrong version number|packet length too long/i.test(message)) {
+    return "SMTP_URL uses smtps:// against a port that expects STARTTLS — use smtp:// for 587/2587, or keep smtps:// and move to 465/2465";
+  }
+  // Nothing answered at all. Hosts block outbound 25/465/587 to keep spam
+  // off their address space, and drop the traffic rather than refuse it.
+  if (code === "ETIMEDOUT" || /timeout/i.test(message)) {
+    return "nothing answered — the host may block outbound SMTP on this port; providers publish alternatives above the blocked range (Resend: 2465 for smtps://, 2587 for smtp://)";
+  }
+  return undefined;
 }
