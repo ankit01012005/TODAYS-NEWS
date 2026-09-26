@@ -50,7 +50,7 @@ Every variable is documented in `backend/.env.example` and
 | `APP_BASE_URL` | The frontend's public origin. Goes into invitation and reset emails, and is where cache purges are sent. Must be https in production. |
 | `REVALIDATE_SECRET` | Must be **identical** to the frontend's. 32+ characters. Without it a withdrawn story stays visible until the 60-second window expires. |
 | `TRUST_PROXY` | Number of proxy hops in front of the API. Wrong value = every client looks like the load balancer, and rate limiting applies to the whole newsroom at once. |
-| `MAIL_TRANSPORT` / `SMTP_URL` / `MAIL_FROM` | Production refuses to start without real SMTP. `MAIL_FROM` must be a sender the provider allows. |
+| `MAIL_TRANSPORT` / `SMTP_URL` / `MAIL_FROM` | Production refuses to start without real SMTP. `MAIL_FROM` must be a sender the provider allows. Mind the **port**: hosts commonly block outbound 25, 465 and 587 to keep spam off their address space (Render does on its smaller plans) and the symptom is silence, not a refusal — use the provider's high alternative (Resend: 2465 for SMTPS, 2587 for STARTTLS). |
 | `LOG_LEVEL` | `info` in production. `debug` temporarily while diagnosing; never leave it there. |
 
 ### Frontend
@@ -313,7 +313,7 @@ Events worth alerting on:
 | `request.unhandled` | A bug. Status 500. Should be zero. |
 | `request.unavailable` | The database was unreachable. Status 503. Retrying would work. |
 | `process.uncaughtException` | The process is restarting itself. |
-| `mail.smtp.unreachable` | Invitations and password resets are not being delivered. |
+| `mail.smtp.unreachable` | Invitations and password resets are not being delivered. At boot, with `ETIMEDOUT`, suspect a blocked SMTP port before the credentials. |
 | `cache.revalidate.failed` | A published or withdrawn story will be stale for up to 60 seconds. |
 | `sessions.reap_failed` | Repeated occurrences mean the session table is growing unbounded. |
 
