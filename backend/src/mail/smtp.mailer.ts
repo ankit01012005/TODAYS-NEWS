@@ -37,6 +37,12 @@ export class SmtpMailer implements Mailer {
       connectionTimeout: 10_000,
       greetingTimeout: 10_000,
       socketTimeout: 20_000,
+      // smtp:// (as against smtps://) opens in the clear and upgrades only
+      // if the server advertises STARTTLS — and if it does not, nodemailer
+      // carries on and puts the AUTH credentials on the wire in plaintext.
+      // This makes the upgrade mandatory instead: STARTTLS or an error.
+      // Harmless on smtps://, where TLS is already up before EHLO.
+      requireTLS: true,
     });
   }
 
