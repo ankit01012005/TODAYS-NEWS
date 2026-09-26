@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PublicArticleSummary } from "@/lib/api/public-types";
-import { formatPublicTime } from "@/lib/format-date";
+import { formatJustInTime } from "@/lib/format-date";
 import { SectionHeading } from "./SectionHeading";
 
 /// 1a's right rail — "JUST IN": the newest published stories with a red
@@ -21,7 +21,7 @@ export function JustIn({ articles, className = "" }: { articles: PublicArticleSu
               className="group block no-underline"
             >
               <time dateTime={article.publishedAt} className="text-mono text-brand">
-                {formatPublicTime(article.publishedAt)}
+                {formatJustInTime(article.publishedAt)}
               </time>
               <h3 className="mt-space-1 text-headline-sm text-ink">
                 <span className="link-underline">{article.headline}</span>
