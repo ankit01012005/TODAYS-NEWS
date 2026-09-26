@@ -7,7 +7,7 @@ jest.mock("../db", () => ({
   },
 }));
 jest.mock("../config", () => ({
-  config: { SESSION_TTL_HOURS: 1, SESSION_COOKIE_NAME: "today_news_session", NODE_ENV: "test" },
+  config: { SESSION_TTL_HOURS: 1, SESSION_COOKIE_NAME: "anvay_session", NODE_ENV: "test" },
 }));
 jest.mock("../mail", () => ({
   mailer: { kind: "console", send: jest.fn().mockResolvedValue(undefined) },

@@ -509,6 +509,32 @@
     }
   }
 
+  /* ---- The masthead's one route to the channel. The pill lifts a hair and
+     the dot's ring quickens on hover, so it reads as something happening
+     rather than a label that happens to be round. ---- */
+  .pill-live {
+    transition:
+      color var(--duration-fast) var(--ease-out-quart),
+      border-color var(--duration-fast) var(--ease-out-quart),
+      background-color var(--duration-fast) var(--ease-out-quart),
+      transform var(--duration-fast) var(--ease-out-quart);
+  }
+  .pill-live:hover {
+    transform: translateY(-1px);
+  }
+  .pill-live:active {
+    transform: translateY(0);
+  }
+  .pill-live:hover .live-dot::before {
+    animation-duration: 1.1s;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pill-live:hover,
+    .pill-live:active {
+      transform: none;
+    }
+  }
+
   /* ---- The TV hub's play button breathes a slow red ring, like the live dot. ---- */
   .play-ring {
     position: relative;

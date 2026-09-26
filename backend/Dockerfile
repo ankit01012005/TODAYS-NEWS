@@ -1,4 +1,4 @@
-# Today_news API — production image.
+# ANVAY TV API — production image.
 #
 # Multi-stage so the shipped layer holds no compiler, no dev dependencies
 # and no source: what runs is dist/ plus the production node_modules and

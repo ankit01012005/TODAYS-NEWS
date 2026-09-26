@@ -1,4 +1,4 @@
-# Today_news
+# ANVAY TV
 
 An editorial newsroom platform: a public news site plus an invite-only
 staff CMS with a reviewed publication workflow (editors write and submit;
@@ -46,7 +46,7 @@ Supabase project is fine, or a local server) and a free **Cloudinary**
 account. No Docker required for development.
 
 ```bash
-git clone <this repo> && cd Today_news
+git clone <this repo> && cd Today_news   # the checkout directory keeps its name
 
 # --- 1. API ---------------------------------------------------------
 cd backend

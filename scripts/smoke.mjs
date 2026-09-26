@@ -35,7 +35,7 @@ async function get(url) {
   const res = await fetch(url, {
     signal: AbortSignal.timeout(timeoutMs),
     redirect: "manual",
-    headers: { "user-agent": "today-news-smoke/1" },
+    headers: { "user-agent": "anvay-tv-smoke/1" },
   });
   return { status: res.status, body: await res.text().catch(() => "") };
 }

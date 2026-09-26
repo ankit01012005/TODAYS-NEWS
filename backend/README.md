@@ -1,6 +1,6 @@
-# Today_news — Backend API
+# ANVAY TV — Backend API
 
-The Today_news editorial API: session-based auth, capability-based
+The ANVAY TV editorial API: session-based auth, capability-based
 authorization, the article revision/workflow model, media uploads to
 Cloudinary, and the public read API the frontend renders from.
 Express + TypeScript + Prisma + PostgreSQL.
@@ -51,7 +51,7 @@ npm run dev
 ```
 
 The server starts on `http://localhost:3001` (or `PORT`) and logs
-`Today_news API listening on port <PORT>` once ready. `GET /health`
+`ANVAY TV API listening on port <PORT>` once ready. `GET /health`
 confirms it is up; `GET /ready` confirms it can reach the database.
 
 There is no self-serve sign-up by design (invite-only, docs/03), so
@@ -70,17 +70,17 @@ refuses to start with a missing or malformed required value.
 | `DATABASE_URL`         | Yes                 | —                    | Runtime connection string. Use the **pooled** address on Neon/Supabase/PgBouncer. |
 | `DIRECT_DATABASE_URL`  | Yes (Prisma CLI)    | —                    | Direct, session-mode connection used by `prisma migrate`. Same as `DATABASE_URL` without a pooler. |
 | `CLOUDINARY_URL`       | Yes                 | —                    | `cloudinary://API_KEY:API_SECRET@CLOUD_NAME`, from the Cloudinary dashboard. |
-| `CLOUDINARY_FOLDER`    | No                  | `today-news`         | Folder uploads land in — one account can host several environments. |
+| `CLOUDINARY_FOLDER`    | No                  | `anvay-tv`            | Folder uploads land in — one account can host several environments. |
 | `NODE_ENV`             | No                  | `development`        | `development` \| `test` \| `production`. Production enables `Secure` cookies and requires SMTP, https `APP_BASE_URL` and `REVALIDATE_SECRET`. |
 | `PORT`                 | No                  | `3001`               | |
 | `TRUST_PROXY`          | No                  | `0`                  | Reverse-proxy hops in front of this process; needed for correct client IPs in rate limiting. |
-| `SESSION_COOKIE_NAME`  | No                  | `today_news_session` | Must match `frontend/lib/api/session.ts`. |
+| `SESSION_COOKIE_NAME`  | No                  | `anvay_session`        | Must match `frontend/lib/api/session.ts`. |
 | `SESSION_TTL_HOURS`    | No                  | `12`                 | |
 | `APP_BASE_URL`         | No (yes in prod)    | `http://localhost:3000` | The Next.js app's public origin — used in emailed links and to reach `/api/revalidate`. |
 | `REVALIDATE_SECRET`    | Production          | —                    | Shared with the frontend; 32+ random characters. Lets the API purge the public page cache on publish/withdraw. |
 | `MAIL_TRANSPORT`       | No                  | `smtp` if `SMTP_URL` is set or in prod, else `console` | `console` prints emails (links included) to stdout instead of sending. |
 | `SMTP_URL`             | With `smtp`         | —                    | `smtps://USER:PASSWORD@host:465` or `smtp://…:587`. |
-| `MAIL_FROM`            | With `smtp`         | —                    | `Today News <newsroom@example.com>` — a sender your provider lets you send as (Resend: a verified domain; `onboarding@resend.dev` only reaches the account owner's inbox). |
+| `MAIL_FROM`            | With `smtp`         | —                    | `ANVAY TV <newsroom@example.com>` — a sender your provider lets you send as (Resend: a verified domain; `onboarding@resend.dev` only reaches the account owner's inbox). |
 | `CORS_ORIGINS`         | No                  | (none)               | Comma-separated origins. Leave unset — the browser never calls this API directly. |
 
 `.env` is git-ignored; only `.env.example` is committed.
