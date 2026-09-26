@@ -7,6 +7,13 @@ import { MailMessage, Mailer } from "./mailer";
 /// provider (Postmark, SES, Resend, Mailgun, Google Workspace) documents.
 /// A single pooled transporter for the process; nodemailer reconnects on
 /// its own.
+///
+/// Note on ports: many hosts block outbound 25, 465 and 587 outright to
+/// keep spam off their address space — Render does on its smaller plans,
+/// and the symptom is not a refusal but silence, a connection that never
+/// completes. Providers publish high alternatives for exactly this
+/// (Resend answers on 2465 and 2587); reach for one of those before
+/// concluding the credentials are wrong.
 export class SmtpMailer implements Mailer {
   readonly kind = "smtp" as const;
   private readonly transporter: Transporter;
@@ -15,7 +22,22 @@ export class SmtpMailer implements Mailer {
     smtpUrl: string,
     private readonly from: string,
   ) {
-    this.transporter = nodemailer.createTransport({ url: smtpUrl, pool: true, maxConnections: 2 });
+    this.transporter = nodemailer.createTransport({
+      url: smtpUrl,
+      pool: true,
+      maxConnections: 2,
+      // Bounded, because the default is not. A host that silently drops
+      // traffic to the SMTP port leaves every connection hanging until
+      // something times out, and an invitation is sent inside the request
+      // that creates the account: one blocked port turned POST /users into
+      // a 241-second request in production, holding a worker on the single
+      // API instance for four minutes to deliver nothing. Failing in
+      // seconds is the difference between a logged mail error and an
+      // outage.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+    });
   }
 
   /// Handshake with the server without sending. Called once at boot so a
